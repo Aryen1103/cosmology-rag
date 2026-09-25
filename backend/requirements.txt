@@ -1,0 +1,9 @@
+# torch is installed separately (CPU build) - see README.
+httpx==0.28.1
+pylatexenc==2.11
+pymupdf==1.28.2
+pillow==12.3.0
+numpy==2.4.6
+transformers==5.17.0
+anthropic==1.8.0
+python-dotenv==1.2.3
