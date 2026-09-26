@@ -27,6 +27,8 @@ npm run build    # tsc -b && vite build
 npm run lint     # oxlint
 ```
 
+Docker, from the repo root: `docker build -t cosmology-rag .` then `docker run -p 8000:8000 --env-file backend/.env cosmology-rag`. The image bakes in `data/index` and each paper's `paper.json` + `figures/` (see `.dockerignore`) and the bge model, and runs with `HF_HUB_OFFLINE=1`. If `MODEL_NAME` in `app/index/embeddings.py` changes, update the Dockerfile too. CI (`.github/workflows/ci.yml`) runs pytest **without torch**, so nothing may import torch or transformers at module level.
+
 Install: CPU-only torch first (`pip install torch --index-url https://download.pytorch.org/whl/cpu`), then `pip install -r requirements-dev.txt`.
 
 API keys (`ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`) and optional `CLAUDE_MODEL` / `DEEPSEEK_MODEL` overrides are read from `backend/.env` (`ENV_FILE` in `app/config.py`). `data/`, by contrast, lives at the repo root and is generated and gitignored.
@@ -42,7 +44,7 @@ The pipeline has three stages, which communicate only through files under `data/
    - `DeepSeekProvider` sends `image_url` parts; `marker_citations` checks the `[S#]`/`[F#]` markers against the real sources and reports unknown ones in `unknown_markers`.
    - Providers are loaded lazily through `app/answer/__init__.get_provider`, which raises `RuntimeError` when a key is missing.
 
-`app/main.py` (FastAPI) wraps stage 3. It loads the index and warms the embedding model in `lifespan`, caches providers, and runs `provider="both"` in parallel threads. It returns a 400 error for a missing key before spending on either provider. The figure route only serves files matching `fig\d+_\d+\.png`, which guards against path traversal. CORS allows the Vite dev server on `:5173`. The server loads the index only at startup, so rebuilding it needs a restart or `POST /api/reload-index`. `tests/test_api.py` skips the lifespan by not using `with TestClient(...)`, and monkeypatches `main._state["index"]` and `main._providers`.
+`app/main.py` (FastAPI) wraps stage 3. It loads the index and warms the embedding model in `lifespan`, caches providers, and runs `provider="both"` in parallel threads. It returns a 400 error for a missing key before spending on either provider. The figure route only serves files matching `fig\d+_\d+\.png`, which guards against path traversal. CORS allows the Vite dev server on `:5173`. If `frontend/dist` exists (or `FRONTEND_DIST`), it is mounted at `/` after all `/api` routes. `/api/ask` goes through `AskLimiter`, an in-memory limit per IP (first `X-Forwarded-For` entry) and per day, configured by `ASK_LIMIT_PER_IP_PER_HOUR` / `ASK_LIMIT_PER_DAY`; `/api/search` is never limited. The server loads the index only at startup, so rebuilding it needs a restart or `POST /api/reload-index`. `tests/test_api.py` skips the lifespan by not using `with TestClient(...)`, and monkeypatches `main._state["index"]` and `main._providers`.
 
 The frontend (`frontend/`, React + TypeScript + Vite) talks only to `/api` and holds no state beyond the current result. Two things there are easy to break:
 

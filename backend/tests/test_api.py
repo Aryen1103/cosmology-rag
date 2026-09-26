@@ -40,3 +40,34 @@ def test_ask_reports_missing_key_clearly(monkeypatch):
 def test_ask_validates_input():
     assert client.post("/api/ask", json={"question": ""}).status_code == 422
     assert client.post("/api/ask", json={"question": "x", "provider": "gpt"}).status_code == 422
+
+
+class _FakeProvider:
+    def answer(self, question, sources):
+        return main.Answer("deepseek", "m", "ok", [], [], 1, 1, 0.1)
+
+
+def test_ask_rate_limit_per_client_and_per_day(monkeypatch):
+    monkeypatch.setattr(main, "_providers", {"deepseek": _FakeProvider(), "claude": _FakeProvider()})
+    monkeypatch.setattr(main, "_limiter", main.AskLimiter(per_ip_per_hour=2, per_day=3))
+    ask = lambda ip, provider="deepseek": client.post(  # noqa: E731
+        "/api/ask", json={"question": "q", "provider": provider}, headers={"X-Forwarded-For": ip}
+    ).status_code
+    assert [ask("1.1.1.1"), ask("1.1.1.1"), ask("1.1.1.1")] == [200, 200, 429]
+    assert ask("2.2.2.2") == 200  # different client, but that's the 3rd of 3 daily calls
+    assert ask("3.3.3.3") == 429
+    assert client.post("/api/search", json={"question": "q"}).status_code == 200  # search is never limited
+
+
+def test_ask_both_counts_two_calls_against_daily_budget(monkeypatch):
+    monkeypatch.setattr(main, "_providers", {"deepseek": _FakeProvider(), "claude": _FakeProvider()})
+    monkeypatch.setattr(main, "_limiter", main.AskLimiter(per_ip_per_hour=0, per_day=3))
+    both = {"question": "q", "provider": "both"}
+    assert client.post("/api/ask", json=both).status_code == 200
+    assert client.post("/api/ask", json=both).status_code == 429
+
+
+def test_reload_index_requires_admin_token_when_set(monkeypatch):
+    monkeypatch.setenv("ADMIN_TOKEN", "s3cret")
+    assert client.post("/api/reload-index").status_code == 403
+    assert client.post("/api/reload-index", headers={"X-Admin-Token": "wrong"}).status_code == 403

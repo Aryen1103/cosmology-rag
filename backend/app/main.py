@@ -1,31 +1,40 @@
 """HTTP API for the cosmology RAG system.
 
 Run: uvicorn app.main:app --port 8000   (from backend/)
+
+If the frontend has been built (frontend/dist, or FRONTEND_DIST), it is served at /, so a
+deployment is a single container.
 """
 from __future__ import annotations
 
+import datetime as dt
 import json
 import os
 import re
 import threading
+import time
+from collections import defaultdict, deque
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Literal
 
 import anthropic
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.answer import PROVIDERS, get_provider
 from app.answer.base import Answer, Source, build_sources
-from app.config import INDEX_DIR, PAPERS_DIR
+from app.config import INDEX_DIR, PAPERS_DIR, REPO_ROOT
 from app.index.store import Hit, Index
 from app.ingest.pipeline import paper_dir_name
 
 PROVIDER_KEYS = {"claude": "ANTHROPIC_API_KEY", "deepseek": "DEEPSEEK_API_KEY"}
+FRONTEND_DIST = Path(os.getenv("FRONTEND_DIST", REPO_ROOT / "frontend" / "dist"))
 _SAFE_ID_RE = re.compile(r"^[A-Za-z0-9._\-]+$")
 _FIGURE_FILE_RE = re.compile(r"^fig\d+_\d+\.png$")
 
@@ -34,8 +43,53 @@ _providers: dict = {}
 _providers_lock = threading.Lock()
 
 
+class AskLimiter:
+    """Caps model calls on a public deployment, where every question spends the owner's API credit.
+
+    Limits are per client IP per hour and across all clients per UTC day; 0 disables a limit.
+    In-memory, so it resets on restart and is per-replica - enough for a single small container.
+    """
+
+    def __init__(self, per_ip_per_hour: int, per_day: int) -> None:
+        self.per_ip_per_hour = per_ip_per_hour
+        self.per_day = per_day
+        self._lock = threading.Lock()
+        self._recent: dict[str, deque[float]] = defaultdict(deque)
+        self._day = dt.date.min
+        self._day_count = 0
+
+    def check(self, client: str, calls: int) -> None:
+        now = time.time()
+        today = dt.datetime.now(dt.timezone.utc).date()
+        with self._lock:
+            if today != self._day:
+                self._day, self._day_count = today, 0
+            recent = self._recent[client]
+            while recent and recent[0] <= now - 3600:
+                recent.popleft()
+            if self.per_ip_per_hour and len(recent) >= self.per_ip_per_hour:
+                raise HTTPException(429, f"Limit of {self.per_ip_per_hour} questions per hour reached. Try again later, or use Search only.")
+            if self.per_day and self._day_count + calls > self.per_day:
+                raise HTTPException(429, "This demo's daily question budget is used up. Search only still works.")
+            recent.append(now)
+            self._day_count += calls
+
+
+_limiter = AskLimiter(
+    per_ip_per_hour=int(os.getenv("ASK_LIMIT_PER_IP_PER_HOUR", "0")),
+    per_day=int(os.getenv("ASK_LIMIT_PER_DAY", "0")),
+)
+
+
+def _client_ip(request: Request) -> str:
+    # Behind a cloud load balancer the real client is the first X-Forwarded-For entry.
+    forwarded = request.headers.get("x-forwarded-for", "")
+    return forwarded.split(",")[0].strip() or (request.client.host if request.client else "unknown")
+
+
 def _load_index() -> None:
     _state["index"] = Index(INDEX_DIR)
+    _state.pop("papers", None)
 
 
 @asynccontextmanager
@@ -143,6 +197,12 @@ def stats() -> dict:
 
 @app.get("/api/papers")
 def papers() -> list[dict]:
+    if "papers" not in _state:  # reading every paper.json per request is slow; cached until reload
+        _state["papers"] = _read_papers()
+    return _state["papers"]
+
+
+def _read_papers() -> list[dict]:
     out = []
     for paper_json in sorted(PAPERS_DIR.glob("*/paper.json"), reverse=True):
         paper = json.loads(paper_json.read_text(encoding="utf-8"))
@@ -166,18 +226,22 @@ def search(request: SearchRequest) -> dict:
 
 
 @app.post("/api/ask")
-def ask(request: AskRequest) -> dict:
-    sources, sources_json = _retrieve(request.question, request.k_text, request.k_figures)
+def ask(request: AskRequest, http_request: Request) -> dict:
     names = list(PROVIDERS) if request.provider == "both" else [request.provider]
     for name in names:
         _provider(name)  # fail fast with a 400 if a key is missing, before spending on the other
+    _limiter.check(_client_ip(http_request), calls=len(names))
+    sources, sources_json = _retrieve(request.question, request.k_text, request.k_figures)
     with ThreadPoolExecutor(max_workers=len(names)) as pool:
         answers = list(pool.map(lambda n: _run_provider(n, request.question, sources), names))
     return {"question": request.question, "sources": sources_json, "answers": answers}
 
 
 @app.post("/api/reload-index")
-def reload_index() -> dict:
+def reload_index(http_request: Request) -> dict:
+    token = os.getenv("ADMIN_TOKEN")
+    if token and http_request.headers.get("x-admin-token") != token:
+        raise HTTPException(status_code=403)
     _load_index()
     return stats()
 
@@ -190,3 +254,8 @@ def figure(paper_dir: str, filename: str) -> FileResponse:
     if not path.is_file():
         raise HTTPException(status_code=404)
     return FileResponse(path, media_type="image/png")
+
+
+# Last, so every /api route above takes precedence over the static files.
+if FRONTEND_DIST.is_dir():
+    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")

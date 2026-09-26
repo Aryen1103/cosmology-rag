@@ -1,5 +1,7 @@
 # Cosmology RAG
 
+[![CI](https://github.com/Aryen1103/cosmology-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/Aryen1103/cosmology-rag/actions/workflows/ci.yml)
+
 **Multimodal retrieval-augmented generation over arXiv cosmology papers.**
 
 Ask a question across a library of recent `astro-ph.CO` papers. The system
@@ -313,7 +315,37 @@ The tests cover LaTeX parsing (nested braces, `\input` inlining, macro
 expansion, comment stripping, front-matter and bibliography removal, figure and
 caption extraction, TikZ detection), e-print unpacking (tarball, gzipped single
 file, PDF), figure conversion, chunking, boilerplate filtering and citation
-marker validation. None of them need network access or API keys.
+marker validation, plus the HTTP API: input validation, missing-key errors,
+path-traversal protection on the figure route, and rate limiting. None of them
+need network access or API keys.
+
+**CI.** [GitHub Actions](.github/workflows/ci.yml) runs on every push and pull
+request: pytest, the frontend lint and production build, and a Docker image
+build.
+
+## Docker
+
+One image serves the API and the built web app. The corpus in `data/` is baked
+in, so ingest and build the index first. API keys are never part of the image;
+pass them at runtime.
+
+```bash
+docker build -t cosmology-rag .
+docker run -p 8000:8000 --env-file backend/.env cosmology-rag   # http://localhost:8000
+```
+
+Runtime settings (environment variables):
+
+| Variable | Purpose |
+|---|---|
+| `DEEPSEEK_API_KEY`, `ANTHROPIC_API_KEY` | Provider keys. Omit one to disable that provider. |
+| `ASK_LIMIT_PER_IP_PER_HOUR` | Questions per client per hour (0 = unlimited, the default). |
+| `ASK_LIMIT_PER_DAY` | Model calls per UTC day across all clients (0 = unlimited). |
+| `ADMIN_TOKEN` | If set, `POST /api/reload-index` requires a matching `X-Admin-Token` header. |
+| `PORT` | Listen port (default 8000). |
+
+On a public deployment, set both limits. Every question spends your API credit,
+and **Search only** stays available once the limits are reached.
 
 ## Known limitations
 
