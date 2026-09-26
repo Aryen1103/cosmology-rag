@@ -7,3 +7,11 @@ frontend/node_modules/
 frontend/dist/
 .env
 *.log
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+tfplan

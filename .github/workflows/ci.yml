@@ -48,6 +48,21 @@ jobs:
       - run: npm run lint
       - run: npm run build
 
+  terraform:
+    name: Terraform (Azure) fmt, validate, test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/azure
+    steps:
+      - uses: actions/checkout@v5
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive
+      # No backend and a mocked provider: validates the deployment without an Azure account.
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate
+      - run: terraform test
+
   docker:
     name: Docker image builds
     runs-on: ubuntu-latest

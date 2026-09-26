@@ -347,6 +347,20 @@ Runtime settings (environment variables):
 On a public deployment, set both limits. Every question spends your API credit,
 and **Search only** stays available once the limits are reached.
 
+## Deployment (Azure)
+
+[`infra/azure/`](infra/azure/) holds Terraform for **Azure Container Apps**:
+scale-to-zero consumption hosting, API keys held as Container Apps secrets,
+capped log ingestion, and a single replica so the question limits hold. Deploys
+go through a manual [GitHub Actions workflow](.github/workflows/deploy-azure.yml)
+that logs in to Azure with OIDC (no stored credentials) and keeps Terraform state
+in Azure Storage. CI runs `terraform fmt`, `validate` and plan-level
+`terraform test` against a mocked provider on every push.
+
+**Status:** deployment-ready and validated in CI, but not currently running on
+Azure. See [infra/azure/README.md](infra/azure/README.md) for the architecture,
+cost estimate, one-time setup and deploy steps.
+
 ## Known limitations
 
 - **EPS figures** need Ghostscript to rasterise and are skipped without it
@@ -368,5 +382,7 @@ and **Search only** stays available once the limits are reached.
 - [x] Claude and DeepSeek answer providers behind one interface
 - [ ] Run and compare both providers on real figure questions
 - [x] FastAPI backend + React frontend (answers with clickable citations and figure thumbnails)
+- [x] Docker image, CI (pytest, frontend, Terraform, image build), Azure Container Apps infrastructure as code
+- [ ] Go live on Azure
 - [ ] Scale the corpus to a few hundred papers
 - [ ] Optional: generated figure descriptions at ingest time for stronger figure retrieval

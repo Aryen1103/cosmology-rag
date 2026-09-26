@@ -1,0 +1,10 @@
+# Copy to terraform.tfvars (gitignored) for local runs. In CI these come from GitHub secrets instead.
+image    = "ghcr.io/aryen1103/cosmology-rag:latest"
+location = "westeurope"
+
+# Secrets: prefer TF_VAR_deepseek_api_key in the environment over writing them here.
+# deepseek_api_key = ""
+
+ask_limit_per_ip_per_hour = 10
+ask_limit_per_day         = 200
+min_replicas              = 0

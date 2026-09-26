@@ -29,6 +29,8 @@ npm run lint     # oxlint
 
 Docker, from the repo root: `docker build -t cosmology-rag .` then `docker run -p 8000:8000 --env-file backend/.env cosmology-rag`. The image bakes in `data/index` and each paper's `paper.json` + `figures/` (see `.dockerignore`) and the bge model, and runs with `HF_HUB_OFFLINE=1`. If `MODEL_NAME` in `app/index/embeddings.py` changes, update the Dockerfile too. CI (`.github/workflows/ci.yml`) runs pytest **without torch**, so nothing may import torch or transformers at module level.
 
+Azure: `infra/azure/` is Terraform for Container Apps (`max_replicas = 1` because `AskLimiter` is in-memory). `terraform init -backend=false && terraform validate && terraform test` needs no Azure account (mocked provider); CI runs these. Deploying is the manual `deploy-azure.yml` workflow, which needs the secrets listed in `infra/azure/README.md`. The app is not currently deployed.
+
 Install: CPU-only torch first (`pip install torch --index-url https://download.pytorch.org/whl/cpu`), then `pip install -r requirements-dev.txt`.
 
 API keys (`ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`) and optional `CLAUDE_MODEL` / `DEEPSEEK_MODEL` overrides are read from `backend/.env` (`ENV_FILE` in `app/config.py`). `data/`, by contrast, lives at the repo root and is generated and gitignored.

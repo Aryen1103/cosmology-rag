@@ -1,0 +1,80 @@
+name: Deploy to Azure
+
+# Manual only: deploying creates billable Azure resources. See infra/azure/README.md for the
+# one-time setup (Azure login via OIDC, Terraform state storage, repository secrets).
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Image to deploy, e.g. ghcr.io/aryen1103/cosmology-rag:<git-sha>"
+        required: true
+      action:
+        description: "plan shows the changes; apply makes them"
+        type: choice
+        options: [plan, apply]
+        default: plan
+
+permissions:
+  id-token: write # OIDC token for Azure login; no long-lived Azure credentials are stored
+  contents: read
+
+concurrency:
+  group: deploy-azure
+  cancel-in-progress: false
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    environment: production # add required reviewers on this environment to gate deploys
+    defaults:
+      run:
+        working-directory: infra/azure
+    env:
+      ARM_USE_OIDC: "true"
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_image: ${{ inputs.image }}
+      TF_VAR_deepseek_api_key: ${{ secrets.DEEPSEEK_API_KEY }}
+      TF_VAR_anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      TF_IN_AUTOMATION: "true"
+    steps:
+      - name: Check Azure is configured
+        run: |
+          missing=""
+          for name in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID TFSTATE_RESOURCE_GROUP TFSTATE_STORAGE_ACCOUNT; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing. See infra/azure/README.md."
+            exit 1
+          fi
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TFSTATE_RESOURCE_GROUP: ${{ secrets.TFSTATE_RESOURCE_GROUP }}
+          TFSTATE_STORAGE_ACCOUNT: ${{ secrets.TFSTATE_STORAGE_ACCOUNT }}
+
+      - uses: actions/checkout@v5
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: terraform init
+        run: >
+          terraform init -input=false
+          -backend-config="resource_group_name=${{ secrets.TFSTATE_RESOURCE_GROUP }}"
+          -backend-config="storage_account_name=${{ secrets.TFSTATE_STORAGE_ACCOUNT }}"
+          -backend-config="container_name=tfstate"
+          -backend-config="key=cosmology-rag.tfstate"
+          -backend-config="use_oidc=true"
+          -backend-config="use_azuread_auth=true"
+
+      - run: terraform plan -input=false -out=tfplan
+
+      - name: terraform apply
+        if: inputs.action == 'apply'
+        run: terraform apply -input=false tfplan
+
+      - name: Show URL
+        if: inputs.action == 'apply'
+        run: echo "Deployed to $(terraform output -raw url)" >> "$GITHUB_STEP_SUMMARY"
