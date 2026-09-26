@@ -49,6 +49,7 @@ def test_boilerplate_sections_are_not_indexed():
             {"path": ["Acknowledgements"], "text": "We thank our funders."},
             {"path": ["Data Availability"], "text": "Data on request."},
             {"path": ["Methods", "Software"], "text": "We used numpy."},
+            {"path": ["Appendix: Author List"], "text": "A. Author; B. Author."},
         ],
         "figures": [],
     }
@@ -60,3 +61,10 @@ def test_marker_citations_flags_unknown_sources():
     citations, unknown = marker_citations("Rises [S1][F1], again [S1], and [S7].", sources)
     assert [c.source_id for c in citations] == ["S1", "F1"]
     assert unknown == ["S7"]
+
+
+def test_marker_citations_reads_grouped_markers():
+    sources = [Source(i, "text", "x", "t", "s", "a") for i in ("S1", "S2", "F1")]
+    citations, unknown = marker_citations("Tight [S2, F1] and loose [S1; S9], not [see S1].", sources)
+    assert [c.source_id for c in citations] == ["S2", "F1", "S1"]
+    assert unknown == ["S9"]

@@ -9,8 +9,9 @@ with citations back to the exact paper, section and figure.
 
 > **Status: work in progress.** Ingestion, indexing and retrieval are built and
 > tested on real papers. The answer step (Claude and DeepSeek) is implemented
-> but not yet evaluated against the live APIs. A web frontend and a
-> head-to-head model comparison are next. See [Roadmap](#roadmap).
+> but not yet evaluated against the live APIs. A FastAPI backend and a React
+> web app are working. A head-to-head model comparison is next. See
+> [Roadmap](#roadmap).
 
 ---
 
@@ -193,6 +194,7 @@ cosmology-rag/
 ├── backend/
 │   ├── app/
 │   │   ├── config.py            # paths, model names, .env loading
+│   │   ├── main.py              # FastAPI: /api/ask, /api/search, /api/papers, figure images
 │   │   ├── ingest/
 │   │   │   ├── arxiv_client.py  # arXiv API search + e-print download (rate-limited)
 │   │   │   ├── latex.py         # LaTeX -> sections, figures, citing paragraphs
@@ -210,6 +212,7 @@ cosmology-rag/
 │   │   ├── build_index.py       # embed into data/index/
 │   │   └── ask.py               # ask a question from the command line
 │   └── tests/
+├── frontend/                    # React + Vite web app (proxies /api to the backend)
 └── data/                        # generated, gitignored
     ├── papers/<arxiv_id>/       # paper.json, figures/*.png, cached embeddings
     └── index/                   # embeddings.npy, records.jsonl
@@ -230,7 +233,7 @@ pip install torch --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements-dev.txt
 ```
 
-Create a `.env` file in the repository root (it is gitignored). You only need
+Copy `backend/.env.example` to `backend/.env` (which is gitignored) and fill in
 the key for the provider you use:
 
 ```
@@ -240,9 +243,16 @@ DEEPSEEK_API_KEY=sk-...          # platform.deepseek.com
 
 Optional overrides: `CLAUDE_MODEL`, `DEEPSEEK_MODEL`.
 
+The web app needs Node.js 20+:
+
+```bash
+cd frontend
+npm install
+```
+
 ## Usage
 
-All commands run from `backend/`.
+Steps 1–3 run from `backend/`.
 
 **1. Ingest papers.** This fetches the newest papers matching an arXiv query
 and parses them into `data/papers/`. Already-ingested papers are skipped.
@@ -273,6 +283,20 @@ python scripts/ask.py "What does the peak-evolution figure show?" --provider bot
 The output lists the retrieved sources with similarity scores, then each
 provider's answer, token usage, latency and citations (with quoted text for
 Claude).
+
+**4. Use the web app.** Start the API, then the frontend dev server, and open
+http://localhost:5173.
+
+```bash
+cd backend && uvicorn app.main:app --port 8000
+cd frontend && npm run dev
+```
+
+Answers render Markdown and LaTeX. Citation markers are clickable and jump to
+the source they cite, and figures open full size. **Search only** shows what
+retrieval finds without calling a model. The Papers tab lists everything
+ingested and warns when the index is behind. After rebuilding the index,
+restart the API server so it loads the new one.
 
 **Cost.** Each question sends roughly 8–10K input tokens (six passages and up
 to three figures). With Claude Opus 5 that's about $0.05–0.07 per question.
@@ -311,6 +335,6 @@ marker validation. None of them need network access or API keys.
 - [x] Retrieval over text and figures
 - [x] Claude and DeepSeek answer providers behind one interface
 - [ ] Run and compare both providers on real figure questions
-- [ ] FastAPI backend + React frontend (answers with clickable citations and figure thumbnails)
+- [x] FastAPI backend + React frontend (answers with clickable citations and figure thumbnails)
 - [ ] Scale the corpus to a few hundred papers
 - [ ] Optional: generated figure descriptions at ingest time for stronger figure retrieval

@@ -11,13 +11,38 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from pylatexenc.latex2text import LatexNodes2Text
+from pylatexenc import latex2text, latexwalker
+from pylatexenc.macrospec import MacroSpec
 
 MAX_INPUT_DEPTH = 10
 MACRO_EXPANSION_PASSES = 3
 MAX_CITING_PARAGRAPHS = 3
 
-_converter = LatexNodes2Text(math_mode="verbatim")
+# Gaps in pylatexenc's defaults:
+# - The parser doesn't know \href takes two arguments, but the stock text handler indexes both, so any
+#   paper with a hyperlink crashed with IndexError.
+# - These text macros render as "" and silently drop their content, e.g. \texttt{CLASS}.
+_KEEP_CONTENT_MACROS = ("texttt", "textsf", "textup", "textmd", "mbox")
+_parse_context = latexwalker.get_default_latex_context_db()
+_parse_context.add_context_category(
+    "cosmology-rag",
+    macros=[MacroSpec("href", "{{"), *(MacroSpec(m, "{") for m in _KEEP_CONTENT_MACROS)],
+    prepend=True,
+)
+_text_context = latex2text.get_default_latex_context_db()
+_text_context.add_context_category(
+    "cosmology-rag",
+    macros=[
+        latex2text.MacroTextSpec(
+            "href",
+            simplify_repl=lambda n, l2tobj: f"{l2tobj.node_arg_to_text(n, 1)} <{l2tobj.node_arg_to_text(n, 0)}>",
+        ),
+        *(latex2text.MacroTextSpec(m, simplify_repl=lambda n, l2tobj: l2tobj.node_arg_to_text(n, 0))
+          for m in _KEEP_CONTENT_MACROS),
+    ],
+    prepend=True,
+)
+_converter = latex2text.LatexNodes2Text(math_mode="verbatim", latex_context=_text_context)
 
 _INPUT_RE = re.compile(r"\\(?:input|include|subfile)\s*\{([^}]+)\}")
 _SECTION_RE = re.compile(r"\\(section|subsection|subsubsection)\*?\s*(?:\[[^\]]*\])?\s*\{")
@@ -209,7 +234,7 @@ def _graphics_in(env: str) -> list[str]:
 
 
 def to_text(tex: str) -> str:
-    text = _converter.latex_to_text(tex).replace("\xa0", " ")
+    text = _converter.latex_to_text(tex, latex_context=_parse_context).replace("\xa0", " ")
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n\s*\n\s*", "\n\n", text)
     return text.strip()

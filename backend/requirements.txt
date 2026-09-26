@@ -7,3 +7,5 @@ numpy==2.4.6
 transformers==5.17.0
 anthropic==1.8.0
 python-dotenv==1.2.3
+fastapi==0.141.1
+uvicorn==0.54.0

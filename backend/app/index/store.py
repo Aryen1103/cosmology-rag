@@ -23,7 +23,7 @@ MIN_CHUNK_WORDS = 25
 MAX_FIGURE_CONTEXT_PARAGRAPHS = 2
 _BOILERPLATE_RE = re.compile(
     r"acknowledg|data availability|author contribution|software|funding|"
-    r"conflicts? of interest|competing interest|code availability",
+    r"conflicts? of interest|competing interest|code availability|author list|contributors",
     re.I,
 )
 

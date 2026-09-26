@@ -6,7 +6,7 @@ import pymupdf
 from PIL import Image
 
 from app.ingest.figures import STATUS_OK, STATUS_UNSUPPORTED, convert_to_png, resolve_graphic
-from app.ingest.latex import expand_macros, collect_simple_macros, parse_latex_tree, read_braced
+from app.ingest.latex import expand_macros, collect_simple_macros, parse_latex_tree, read_braced, to_text
 from app.ingest.pipeline import SOURCE_LATEX, SOURCE_PDF, unpack_source
 
 MAIN_TEX = r"""
@@ -147,3 +147,13 @@ def test_inline_tikz_figure_is_flagged(tmp_path):
     )
     fig = parse_latex_tree(tmp_path).figures[0]
     assert fig.inline_drawing and fig.graphics == [] and fig.caption == "A cartoon."
+
+
+def test_href_keeps_link_text_instead_of_crashing():
+    assert to_text(r"Code at \href{https://github.com/x/y}{our repo}.") == "Code at our repo <https://github.com/x/y>."
+    assert "code" in to_text(r"\href{https://x.org}{\texttt{code}}")
+
+
+def test_text_style_macros_keep_their_content():
+    for macro in ("texttt", "textsf", "textup", "textmd", "mbox"):
+        assert to_text(rf"We use \{macro}{{CLASS}} here.") == "We use CLASS here."

@@ -16,7 +16,7 @@ from app.ingest.pipeline import paper_dir_name
 
 MAX_IMAGES_PER_FIGURE = 2
 
-SYSTEM_PROMPT = """You answer questions about cosmology research papers using only the sources provided.
+SYSTEM_PROMPT = """You answer questions about research papers (mostly cosmology) using only the sources provided.
 
 Sources are text passages labelled [S1], [S2], ... and figures labelled [F1], [F2], ... . Figures come with their caption and, when available, the image itself - read values, trends and labels directly from the image when the question needs them.
 
@@ -27,7 +27,9 @@ Rules:
 - Keep LaTeX math as-is where it helps precision.
 - Be concise: answer the question first, then only the supporting detail that matters."""
 
-_MARKER_RE = re.compile(r"\[([SF]\d+)\]")
+# Single markers "[S1]" and grouped ones "[S2, F1]" / "[S3; S6]", which DeepSeek often emits.
+_MARKER_GROUP_RE = re.compile(r"\[([SF]\d+(?:\s*[,;]\s*[SF]\d+)*)\]")
+_MARKER_RE = re.compile(r"[SF]\d+")
 
 
 @dataclass
@@ -91,7 +93,8 @@ def marker_citations(answer_text: str, sources: list[Source]) -> tuple[list[Cita
     """Citations from [S#]/[F#] markers, plus markers that name no real source."""
     known = {s.source_id for s in sources}
     seen: list[str] = []
-    for marker in _MARKER_RE.findall(answer_text):
-        if marker not in seen:
-            seen.append(marker)
+    for group in _MARKER_GROUP_RE.findall(answer_text):
+        for marker in _MARKER_RE.findall(group):
+            if marker not in seen:
+                seen.append(marker)
     return [Citation(m) for m in seen if m in known], [m for m in seen if m not in known]

@@ -20,6 +20,7 @@ from app.index.store import Index  # noqa: E402
 
 
 def main() -> None:
+    sys.stdout.reconfigure(encoding="utf-8")  # answers contain dashes, ×, Greek; the Windows console default mangles them
     parser = argparse.ArgumentParser()
     parser.add_argument("question")
     parser.add_argument("--provider", choices=[*PROVIDERS, "both"], default="claude")
