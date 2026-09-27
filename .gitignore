@@ -15,3 +15,5 @@ frontend/dist/
 *.tfvars
 !*.tfvars.example
 tfplan
+
+CLAUDE.md
