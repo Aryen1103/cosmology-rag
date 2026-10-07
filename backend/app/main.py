@@ -8,7 +8,6 @@ deployment is a single container.
 from __future__ import annotations
 
 import datetime as dt
-import json
 import os
 import re
 import threading
@@ -27,11 +26,12 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from app.agent import AgentRun, CosmologyAgent
 from app.answer import PROVIDERS, get_provider
 from app.answer.base import Answer, Source, build_sources
 from app.config import INDEX_DIR, PAPERS_DIR, REPO_ROOT
-from app.index.store import Hit, Index
-from app.ingest.pipeline import paper_dir_name
+from app.index.store import Index
+from app.ingest.pipeline import paper_dir_name, paper_summaries
 
 PROVIDER_KEYS = {"claude": "ANTHROPIC_API_KEY", "deepseek": "DEEPSEEK_API_KEY"}
 FRONTEND_DIST = Path(os.getenv("FRONTEND_DIST", REPO_ROOT / "frontend" / "dist"))
@@ -115,23 +115,35 @@ class AskRequest(BaseModel):
     k_figures: int = Field(default=3, ge=0, le=6)
 
 
+class AgentRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+
+
 class SearchRequest(BaseModel):
     question: str = Field(min_length=1, max_length=2000)
     k_text: int = Field(default=6, ge=1, le=12)
     k_figures: int = Field(default=3, ge=0, le=6)
 
 
-def _provider(name: str):
+def _cached(name: str, factory):
     with _providers_lock:
         if name not in _providers:
             try:
-                _providers[name] = get_provider(name)
+                _providers[name] = factory()
             except RuntimeError as exc:  # missing API key
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
         return _providers[name]
 
 
-def _source_json(source: Source, hit: Hit) -> dict:
+def _provider(name: str):
+    return _cached(name, lambda: get_provider(name))
+
+
+def _agent() -> CosmologyAgent:
+    return _cached("agent", CosmologyAgent)
+
+
+def _source_json(source: Source, score: float) -> dict:
     return {
         "id": source.source_id,
         "kind": source.kind,
@@ -140,7 +152,7 @@ def _source_json(source: Source, hit: Hit) -> dict:
         "paper_title": source.paper_title,
         "section": source.section,
         "text": source.text,
-        "score": round(hit.score, 4),
+        "score": round(score, 4),
         "images": [
             f"/api/figures/{paper_dir_name(source.arxiv_id)}/{path.name}" for path in source.image_paths
         ],
@@ -164,19 +176,24 @@ def _answer_json(answer: Answer) -> dict:
 def _retrieve(question: str, k_text: int, k_figures: int) -> tuple[list[Source], list[dict]]:
     text_hits, figure_hits = _state["index"].search(question, k_text, k_figures)
     sources = build_sources(text_hits, figure_hits)
-    return sources, [_source_json(s, h) for s, h in zip(sources, text_hits + figure_hits)]
+    return sources, [_source_json(s, h.score) for s, h in zip(sources, text_hits + figure_hits)]
 
 
-def _run_provider(name: str, question: str, sources: list[Source]) -> dict:
-    provider = _provider(name)
+def _guarded(name: str, call) -> dict:
+    """Run a model call, turning API failures into an error answer the UI can show."""
     try:
-        return _answer_json(provider.answer(question, sources))
+        return call()
     except anthropic.APIStatusError as exc:
         return {"provider": name, "error": f"Claude API error {exc.status_code}: {exc.message}"}
     except httpx.HTTPStatusError as exc:
         return {"provider": name, "error": f"DeepSeek API error {exc.response.status_code}: {exc.response.text[:300]}"}
     except (anthropic.APIConnectionError, httpx.TransportError) as exc:
         return {"provider": name, "error": f"Could not reach the {name} API: {exc}"}
+
+
+def _run_provider(name: str, question: str, sources: list[Source]) -> dict:
+    provider = _provider(name)
+    return _guarded(name, lambda: _answer_json(provider.answer(question, sources)))
 
 
 @app.get("/api/health")
@@ -198,25 +215,8 @@ def stats() -> dict:
 @app.get("/api/papers")
 def papers() -> list[dict]:
     if "papers" not in _state:  # reading every paper.json per request is slow; cached until reload
-        _state["papers"] = _read_papers()
+        _state["papers"] = paper_summaries(PAPERS_DIR)
     return _state["papers"]
-
-
-def _read_papers() -> list[dict]:
-    out = []
-    for paper_json in sorted(PAPERS_DIR.glob("*/paper.json"), reverse=True):
-        paper = json.loads(paper_json.read_text(encoding="utf-8"))
-        meta = paper["meta"]
-        out.append({
-            "arxiv_id": meta["arxiv_id"],
-            "title": meta["title"],
-            "authors": meta["authors"],
-            "published": meta["published"],
-            "abstract": meta["abstract"],
-            "figures": len(paper["figures"]),
-            "source_type": paper["source_type"],
-        })
-    return out
 
 
 @app.post("/api/search")
@@ -235,6 +235,29 @@ def ask(request: AskRequest, http_request: Request) -> dict:
     with ThreadPoolExecutor(max_workers=len(names)) as pool:
         answers = list(pool.map(lambda n: _run_provider(n, request.question, sources), names))
     return {"question": request.question, "sources": sources_json, "answers": answers}
+
+
+def _agent_json(question: str, run: AgentRun) -> dict:
+    return {
+        "question": question,
+        "sources": [_source_json(s, score) for s, score in zip(run.sources, run.scores)],
+        "answers": [_answer_json(run.answer)],
+        "steps": [
+            {"tool": s.tool, "input": s.input, "output": s.output, "is_error": s.is_error} for s in run.steps
+        ],
+    }
+
+
+@app.post("/api/agent")
+def ask_agent(request: AgentRequest, http_request: Request) -> dict:
+    """Agent mode: the model runs its own searches, views figures and calls lcdm_calculator."""
+    agent = _agent()  # 400 if the Anthropic key is missing
+    _limiter.check(_client_ip(http_request), calls=1)  # one question, however many turns it takes
+    index, paper_list = _state["index"], papers()
+    result = _guarded("agent", lambda: _agent_json(request.question, agent.run(request.question, index, paper_list)))
+    if "error" in result:
+        return {"question": request.question, "sources": [], "answers": [result], "steps": []}
+    return result
 
 
 @app.post("/api/reload-index")

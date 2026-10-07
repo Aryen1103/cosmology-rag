@@ -406,6 +406,31 @@ code {
   margin-left: 0.3rem;
 }
 
+.agent-steps {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+}
+.agent-steps ol {
+  margin: 0.6rem 0 0;
+  padding-left: 1.4rem;
+  display: grid;
+  gap: 0.5rem;
+}
+.agent-steps li {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.agent-steps code {
+  overflow-wrap: anywhere;
+}
+.agent-steps .meta {
+  overflow-wrap: anywhere;
+}
+.agent-steps li.is-error code {
+  color: var(--danger);
+}
+
 summary {
   cursor: pointer;
   color: var(--text-muted);

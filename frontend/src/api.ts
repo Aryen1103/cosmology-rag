@@ -1,5 +1,6 @@
 export type ProviderName = 'claude' | 'deepseek'
-export type ProviderChoice = ProviderName | 'both'
+export type ProviderChoice = ProviderName | 'both' | 'agent'
+export type AnswerSource = ProviderName | 'agent'
 
 export interface Stats {
   papers: number
@@ -26,7 +27,7 @@ export interface Citation {
 }
 
 export interface AnswerOk {
-  provider: ProviderName
+  provider: AnswerSource
   model: string
   text: string
   citations: Citation[]
@@ -38,7 +39,7 @@ export interface AnswerOk {
 }
 
 export interface AnswerError {
-  provider: ProviderName
+  provider: AnswerSource
   error: string
 }
 
@@ -48,6 +49,17 @@ export interface AskResponse {
   question: string
   sources: Source[]
   answers: Answer[]
+}
+
+export interface AgentStep {
+  tool: string
+  input: Record<string, unknown>
+  output: string // first line of the tool result
+  is_error: boolean
+}
+
+export interface AgentResponse extends AskResponse {
+  steps: AgentStep[]
 }
 
 export interface Paper {
@@ -96,9 +108,14 @@ export const api = {
     request<{ sources: Source[] }>('/api/search', { question, ...options }, signal),
   ask: (question: string, provider: ProviderChoice, options: RetrievalOptions, signal?: AbortSignal) =>
     request<AskResponse>('/api/ask', { question, provider, ...options }, signal),
+  agent: (question: string, signal?: AbortSignal) => request<AgentResponse>('/api/agent', { question }, signal),
 }
 
-export const PROVIDER_LABELS: Record<ProviderName, string> = { claude: 'Claude', deepseek: 'DeepSeek' }
+export const PROVIDER_LABELS: Record<AnswerSource, string> = {
+  claude: 'Claude',
+  deepseek: 'DeepSeek',
+  agent: 'Claude agent',
+}
 
 export function isError(answer: Answer): answer is AnswerError {
   return 'error' in answer

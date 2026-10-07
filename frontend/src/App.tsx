@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  type AgentStep,
   type Answer,
   type ProviderChoice,
   type ProviderName,
@@ -9,6 +10,7 @@ import {
   api,
   isError,
 } from './api'
+import { AgentSteps } from './components/AgentSteps'
 import { AnswerCard } from './components/AnswerCard'
 import { PapersView } from './components/PapersView'
 import { SourceList } from './components/SourceList'
@@ -23,6 +25,7 @@ interface Result {
   question: string
   sources: Source[]
   answers: Answer[] | null // null = retrieval only
+  steps?: AgentStep[] // agent mode only
 }
 
 type Tab = 'ask' | 'papers'
@@ -81,7 +84,8 @@ export default function App() {
 
   const providerAvailable = (choice: ProviderChoice): boolean => {
     if (!stats) return true
-    return choice === 'both' ? stats.providers.claude && stats.providers.deepseek : stats.providers[choice]
+    if (choice === 'both') return stats.providers.claude && stats.providers.deepseek
+    return stats.providers[choice === 'agent' ? 'claude' : choice]
   }
 
   const run = async (mode: 'ask' | 'search', text = question) => {
@@ -95,7 +99,10 @@ export default function App() {
     setActiveSource(null)
     const options = { k_text: kText, k_figures: kFigures }
     try {
-      if (mode === 'ask') {
+      if (mode === 'ask' && provider === 'agent') {
+        const response = await api.agent(q, controller.signal)
+        setResult({ question: q, sources: response.sources, answers: response.answers, steps: response.steps })
+      } else if (mode === 'ask') {
         const response = await api.ask(q, provider, options, controller.signal)
         setResult({ question: q, sources: response.sources, answers: response.answers })
       } else {
@@ -176,7 +183,7 @@ export default function App() {
             />
             <div className="form-row">
               <div className="segmented" role="radiogroup" aria-label="Answer provider">
-                {(['claude', 'deepseek', 'both'] as ProviderChoice[]).map((p) => {
+                {(['claude', 'deepseek', 'both', 'agent'] as ProviderChoice[]).map((p) => {
                   const available = providerAvailable(p)
                   return (
                     <button
@@ -186,21 +193,41 @@ export default function App() {
                       aria-checked={provider === p}
                       className={provider === p ? 'is-active' : ''}
                       disabled={!available}
-                      title={available ? undefined : 'API key not set in backend/.env'}
+                      title={
+                        !available
+                          ? 'API key not set in backend/.env'
+                          : p === 'agent'
+                            ? 'Claude runs its own searches, views figures and computes distances'
+                            : undefined
+                      }
                       onClick={() => setProvider(p)}
                     >
-                      {p === 'both' ? 'Both' : PROVIDER_LABELS[p]}
+                      {p === 'both' ? 'Both' : p === 'agent' ? 'Agent' : PROVIDER_LABELS[p]}
                     </button>
                   )
                 })}
               </div>
-              <label className="k-input">
+              <label className="k-input" title={provider === 'agent' ? 'The agent picks its own search sizes' : undefined}>
                 Passages
-                <input type="number" min={1} max={12} value={kText} onChange={(e) => setKText(Number(e.target.value))} />
+                <input
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={kText}
+                  disabled={provider === 'agent'}
+                  onChange={(e) => setKText(Number(e.target.value))}
+                />
               </label>
-              <label className="k-input">
+              <label className="k-input" title={provider === 'agent' ? 'The agent picks its own search sizes' : undefined}>
                 Figures
-                <input type="number" min={0} max={6} value={kFigures} onChange={(e) => setKFigures(Number(e.target.value))} />
+                <input
+                  type="number"
+                  min={0}
+                  max={6}
+                  value={kFigures}
+                  disabled={provider === 'agent'}
+                  onChange={(e) => setKFigures(Number(e.target.value))}
+                />
               </label>
               <span className="spacer" />
               {loading ? (
@@ -252,7 +279,11 @@ export default function App() {
 
           {loading && !result && (
             <p className="muted loading">
-              {loading === 'ask' ? 'Retrieving sources and asking the model…' : 'Searching…'}
+              {loading === 'search'
+                ? 'Searching…'
+                : provider === 'agent'
+                  ? 'The agent is searching the papers…'
+                  : 'Retrieving sources and asking the model…'}
             </p>
           )}
 
@@ -269,6 +300,7 @@ export default function App() {
                     ))}
                   </div>
                 )}
+                {result.steps && <AgentSteps steps={result.steps} />}
               </div>
               <aside className="sources-col" aria-label="Retrieved sources">
                 <SourceList

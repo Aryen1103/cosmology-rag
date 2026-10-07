@@ -105,3 +105,21 @@ def ingest_paper(meta: PaperMeta, raw_source: bytes, papers_dir: Path) -> dict:
 
 def fetch_and_ingest(client: ArxivClient, meta: PaperMeta, papers_dir: Path) -> dict:
     return ingest_paper(meta, client.download_source(meta.arxiv_id), papers_dir)
+
+
+def paper_summaries(papers_dir: Path) -> list[dict]:
+    """Metadata for every ingested paper, newest first. Reads every paper.json, so callers cache it."""
+    out = []
+    for paper_json in sorted(papers_dir.glob("*/paper.json"), reverse=True):
+        paper = json.loads(paper_json.read_text(encoding="utf-8"))
+        meta = paper["meta"]
+        out.append({
+            "arxiv_id": meta["arxiv_id"],
+            "title": meta["title"],
+            "authors": meta["authors"],
+            "published": meta["published"],
+            "abstract": meta["abstract"],
+            "figures": len(paper["figures"]),
+            "source_type": paper["source_type"],
+        })
+    return out

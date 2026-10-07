@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.main as main
+from app.agent import ToolStep
 
 # No `with TestClient(...)`: skips the lifespan, so tests don't load the real index/model.
 client = TestClient(main.app)
@@ -65,6 +66,30 @@ def test_ask_both_counts_two_calls_against_daily_budget(monkeypatch):
     both = {"question": "q", "provider": "both"}
     assert client.post("/api/ask", json=both).status_code == 200
     assert client.post("/api/ask", json=both).status_code == 429
+
+
+def test_agent_reports_missing_key_clearly(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    response = client.post("/api/agent", json={"question": "What is H0?"})
+    assert response.status_code == 400
+    assert "ANTHROPIC_API_KEY" in response.json()["detail"]
+
+
+class _FakeAgent:
+    def run(self, question, index, papers):
+        source = main.Source("S1", "text", "2609.00001v1", "T", "Results", "H0 = 73")
+        answer = main.Answer("agent", "m", "H0 = 73 [S1].", [], [], 1, 1, 0.1)
+        step = ToolStep("search_papers", {"query": "H0"}, "[S1] ...", False)
+        return main.AgentRun(answer, [source], [0.9], [step])
+
+
+def test_agent_returns_answer_sources_and_steps(monkeypatch):
+    monkeypatch.setattr(main, "_providers", {"agent": _FakeAgent()})
+    monkeypatch.setitem(main._state, "papers", [])
+    data = client.post("/api/agent", json={"question": "What is H0?"}).json()
+    assert data["answers"][0]["text"] == "H0 = 73 [S1]."
+    assert [s["id"] for s in data["sources"]] == ["S1"] and data["sources"][0]["score"] == 0.9
+    assert data["steps"] == [{"tool": "search_papers", "input": {"query": "H0"}, "output": "[S1] ...", "is_error": False}]
 
 
 def test_reload_index_requires_admin_token_when_set(monkeypatch):

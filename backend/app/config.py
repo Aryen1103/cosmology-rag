@@ -16,6 +16,7 @@ load_dotenv(ENV_FILE)
 
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-opus-5")
 DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-flash")
+AGENT_MODEL = os.getenv("AGENT_MODEL", "claude-opus-5-5")
 DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
 
 

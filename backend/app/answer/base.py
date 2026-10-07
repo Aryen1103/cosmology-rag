@@ -66,18 +66,20 @@ class Answer:
     stop_reason: str | None = None
 
 
+def source_from_hit(hit: Hit, source_id: str) -> Source:
+    r = hit.record
+    if r.kind == "text":
+        return Source(source_id, "text", r.arxiv_id, r.paper_title, r.section, r.text)
+    paper_dir = PAPERS_DIR / paper_dir_name(r.arxiv_id)
+    images = [paper_dir / f for f in (r.image_files or [])][:MAX_IMAGES_PER_FIGURE]
+    label = f"Figure ({r.label})" if r.label else "Figure"
+    return Source(source_id, "figure", r.arxiv_id, r.paper_title, label, r.text, images)
+
+
 def build_sources(text_hits: list[Hit], figure_hits: list[Hit]) -> list[Source]:
-    sources = []
-    for n, hit in enumerate(text_hits, start=1):
-        r = hit.record
-        sources.append(Source(f"S{n}", "text", r.arxiv_id, r.paper_title, r.section, r.text))
-    for n, hit in enumerate(figure_hits, start=1):
-        r = hit.record
-        paper_dir = PAPERS_DIR / paper_dir_name(r.arxiv_id)
-        images = [paper_dir / f for f in (r.image_files or [])][:MAX_IMAGES_PER_FIGURE]
-        label = f"Figure ({r.label})" if r.label else "Figure"
-        sources.append(Source(f"F{n}", "figure", r.arxiv_id, r.paper_title, label, r.text, images))
-    return sources
+    return [source_from_hit(h, f"S{n}") for n, h in enumerate(text_hits, start=1)] + [
+        source_from_hit(h, f"F{n}") for n, h in enumerate(figure_hits, start=1)
+    ]
 
 
 def figure_intro(source: Source) -> str:
