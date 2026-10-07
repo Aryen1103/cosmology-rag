@@ -12,8 +12,8 @@ with citations back to the exact paper, section and figure.
 > **Status: work in progress.** Ingestion, indexing and retrieval are built and
 > tested on real papers. The answer step (Claude and DeepSeek) is implemented
 > but not yet evaluated against the live APIs. A FastAPI backend and a React
-> web app are working. A head-to-head model comparison is next. See
-> [Roadmap](#roadmap).
+> web app are working. A tool-calling agent mode is implemented and tested
+> offline. A head-to-head model comparison is next. See [Roadmap](#roadmap).
 
 ---
 
@@ -135,6 +135,32 @@ sent to a vision-language model along with the figure images.
 Both providers receive identical sources, numbering and instructions, so their
 answers can be compared fairly.
 
+### 5. Agent mode: the model drives retrieval
+
+The steps above answer from one fixed retrieval. That works for direct
+questions but not for ones that need several lookups, such as comparing two
+papers, finding a paper by its author, or turning a measured parameter into a
+derived quantity. In agent mode, Claude gets the retrieval system as tools and
+decides what to do:
+
+| Tool | What it does |
+|---|---|
+| `search_papers` | The semantic search above. Labels stay stable across searches, so a passage found twice keeps its `[S#]`. |
+| `view_figure` | Sends a retrieved figure's image to the model, for questions about what a plot shows. |
+| `find_papers` | Title or author lookup, which embeddings handle poorly. |
+| `get_paper` | Abstract and section outline of one paper. |
+| `lcdm_calculator` | Distances, ages and H(z) in flat ΛCDM, computed in numpy, so derived numbers are calculated rather than estimated by the model. |
+
+The loop is written by hand against the Messages API rather than using the
+SDK's tool runner, because one tool returns images and the last turn has to
+switch tools off. A question gets at most six model calls; the last one must
+answer from what has been gathered. Tool schemas are strict, bad tool input
+comes back to the model as an error result instead of crashing the run, and
+`get_paper` only reads files for arXiv ids already in the corpus, so model
+input can never name a path. The final answer goes through the same `[S#]` /
+`[F#]` marker check as the single-shot providers, and the API returns the
+full trace of tool calls alongside it.
+
 ## Design decisions
 
 **LaTeX source over PDF parsing.** Academic PDFs are usually two-column, and
@@ -196,7 +222,7 @@ cosmology-rag/
 ├── backend/
 │   ├── app/
 │   │   ├── config.py            # paths, model names, .env loading
-│   │   ├── main.py              # FastAPI: /api/ask, /api/search, /api/papers, figure images
+│   │   ├── main.py              # FastAPI: /api/ask, /api/agent, /api/search, /api/papers, figure images
 │   │   ├── ingest/
 │   │   │   ├── arxiv_client.py  # arXiv API search + e-print download (rate-limited)
 │   │   │   ├── latex.py         # LaTeX -> sections, figures, citing paragraphs
@@ -205,14 +231,19 @@ cosmology-rag/
 │   │   ├── index/
 │   │   │   ├── embeddings.py    # bge-small via transformers (CLS pooling)
 │   │   │   └── store.py         # chunking, per-paper embedding cache, search
-│   │   └── answer/
-│   │       ├── base.py          # shared prompt, source labelling, citation checks
-│   │       ├── claude.py        # Claude: citable documents + images
-│   │       └── deepseek.py      # DeepSeek: chat completions + images
+│   │   ├── answer/
+│   │   │   ├── base.py          # shared prompt, source labelling, citation checks
+│   │   │   ├── claude.py        # Claude: citable documents + images
+│   │   │   └── deepseek.py      # DeepSeek: chat completions + images
+│   │   └── agent/
+│   │       ├── agent.py         # tool-calling loop, turn cap, citation check
+│   │       ├── tools.py         # tool schemas, source registry, tool execution
+│   │       └── cosmology.py     # flat ΛCDM distances and ages (numpy)
 │   ├── scripts/
 │   │   ├── ingest.py            # fetch + parse papers into data/papers/
 │   │   ├── build_index.py       # embed into data/index/
-│   │   └── ask.py               # ask a question from the command line
+│   │   ├── ask.py               # ask a question from the command line
+│   │   └── agent.py             # ask the agent, printing each tool call
 │   └── tests/
 ├── frontend/                    # React + Vite web app (proxies /api to the backend)
 └── data/                        # generated, gitignored
@@ -243,7 +274,8 @@ ANTHROPIC_API_KEY=sk-ant-...     # console.anthropic.com
 DEEPSEEK_API_KEY=sk-...          # platform.deepseek.com
 ```
 
-Optional overrides: `CLAUDE_MODEL`, `DEEPSEEK_MODEL`.
+Optional overrides: `CLAUDE_MODEL`, `DEEPSEEK_MODEL`, `AGENT_MODEL` (agent
+mode, default `claude-opus-5-5`).
 
 The web app needs Node.js 20+:
 
@@ -286,6 +318,13 @@ The output lists the retrieved sources with similarity scores, then each
 provider's answer, token usage, latency and citations (with quoted text for
 Claude).
 
+For questions that need several lookups or a calculation, use agent mode
+(needs `ANTHROPIC_API_KEY`). It prints each tool call as it happens:
+
+```bash
+python scripts/agent.py "What H0 does the TRGB-only analysis find, and what age of the universe does that imply?"
+```
+
 **4. Use the web app.** Start the API, then the frontend dev server, and open
 http://localhost:5173.
 
@@ -296,13 +335,17 @@ cd frontend && npm run dev
 
 Answers render Markdown and LaTeX. Citation markers are clickable and jump to
 the source they cite, and figures open full size. **Search only** shows what
-retrieval finds without calling a model. The Papers tab lists everything
+retrieval finds without calling a model. **Agent** runs agent mode and shows
+the tool calls it made in a collapsible trace. The Papers tab lists everything
 ingested and warns when the index is behind. After rebuilding the index,
 restart the API server so it loads the new one.
 
 **Cost.** Each question sends roughly 8–10K input tokens (six passages and up
 to three figures). With Claude Opus 5 that's about $0.05–0.07 per question.
-DeepSeek costs a small fraction of that.
+DeepSeek costs a small fraction of that. An agent question makes several model
+calls, each resending the conversation so far (prompt caching makes the
+repeated part cheaper), so it costs a few times more than a single-shot
+answer.
 
 ## Testing
 
@@ -316,8 +359,11 @@ expansion, comment stripping, front-matter and bibliography removal, figure and
 caption extraction, TikZ detection), e-print unpacking (tarball, gzipped single
 file, PDF), figure conversion, chunking, boilerplate filtering and citation
 marker validation, plus the HTTP API: input validation, missing-key errors,
-path-traversal protection on the figure route, and rate limiting. None of them
-need network access or API keys.
+path-traversal protection on the figure route, and rate limiting. Agent mode
+is tested with a scripted fake client: tool execution and error results,
+stable source labels across searches, the turn cap, refusals, and the ΛCDM
+calculator against reference values. None of them need network access or API
+keys.
 
 **CI.** [GitHub Actions](.github/workflows/ci.yml) runs on every push and pull
 request: pytest, the frontend lint and production build, and a Docker image
@@ -372,7 +418,13 @@ cost estimate, one-time setup and deploy steps.
 - **Embedding is CPU-bound** (~0.3 s per chunk here), so first-time indexing
   of a few hundred papers takes a while. Caching makes later rebuilds fast.
 - **DeepSeek citations are only as good as the model's markers.** Unlike
-  Claude's, they don't come with a verified quote.
+  Claude's, they don't come with a verified quote. The same applies to agent
+  mode, which uses markers rather than native citations.
+- **Agent mode has only been tested offline**, against a fake client. The
+  `lcdm_calculator` tool neglects radiation, which is accurate below z ~ 10
+  but not near recombination; the tool warns the model when that applies.
+- **Rate limits count an agent question as one question**, although it makes
+  several model calls.
 
 ## Roadmap
 
@@ -380,7 +432,9 @@ cost estimate, one-time setup and deploy steps.
 - [x] Local embedding index with per-paper caching
 - [x] Retrieval over text and figures
 - [x] Claude and DeepSeek answer providers behind one interface
+- [x] Tool-calling agent mode (search, figure viewing, paper lookup, ΛCDM calculator)
 - [ ] Run and compare both providers on real figure questions
+- [ ] Evaluate agent mode against single-shot answers on multi-step questions
 - [x] FastAPI backend + React frontend (answers with clickable citations and figure thumbnails)
 - [x] Docker image, CI (pytest, frontend, Terraform, image build), Azure Container Apps infrastructure as code
 - [ ] Go live on Azure
