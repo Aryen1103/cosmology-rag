@@ -2,7 +2,7 @@
   "name": "test50-ftpilot-dense",
   "method": "dense",
   "reranker": null,
-  "embedding_model": "C:\\Users\\ADMIN\\cosmology-rag\\data\\models\\bge-small-ft-pilot",
+  "embedding_model": "bge-small-ft-pilot",
   "index_dir": "index-test50-ft-pilot",
   "index_records": 4128,
   "questions": 138,
