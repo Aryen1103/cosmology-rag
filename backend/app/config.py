@@ -18,6 +18,10 @@ CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-opus-5")
 DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-flash")
 AGENT_MODEL = os.getenv("AGENT_MODEL", "claude-opus-5-5")
 DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
+# Retrieval: "dense", "bm25" or "hybrid" (see eval/README.md for how they compare), and an
+# optional cross-encoder reranker ("minilm" or "bge-base"; off by default because it is slow on CPU).
+RETRIEVAL_METHOD = os.getenv("RETRIEVAL_METHOD", "hybrid")
+RERANKER = os.getenv("RERANKER") or None
 
 
 def require_env(name: str) -> str:

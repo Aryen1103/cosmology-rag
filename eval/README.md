@@ -53,6 +53,31 @@ The right paper is in the top 6 text hits for every question: every text miss
 is the right paper with the wrong passage, usually ranked 7–20. That points at
 reranking within the candidates rather than at finding the paper.
 
+## Retrieval variants
+
+Same 138 questions, same index. Differences are paired against the baseline
+(dense) unless stated; intervals are 95% paired bootstrap. Search time is the
+median per question on CPU, excluding model loading.
+
+| Variant | Text hit@6 | Text hit@1 | Figure hit@1 | Search time |
+|---|---|---|---|---|
+| Dense (`--method dense`, baseline) | 0.778 | 0.444 | 0.792 | 22 ms |
+| BM25 only (`--method bm25`) | 0.833 (+0.056, CI −0.044 to +0.156) | 0.467 | 0.833 | <1 ms |
+| **Hybrid** (`--method hybrid`) | **0.867** (+0.089, CI +0.022 to +0.156) | 0.533 | 0.854 (+0.062, CI 0.000 to +0.146) | 23 ms |
+| Hybrid + MiniLM reranker (`--rerank minilm`) | 0.878 (+0.011 vs hybrid, CI −0.033 to +0.056) | 0.578 | 0.896 (+0.042 vs hybrid, CI −0.062 to +0.146) | 3.1 s |
+
+- **Hybrid** fuses the dense and BM25 rankings with reciprocal rank fusion
+  (k = 60, top 100 from each). It gained 9 text questions and lost 1, and is
+  the only variant whose text gain over dense excludes zero. It is now the
+  app's default (`RETRIEVAL_METHOD`).
+- **BM25 alone** scores well partly because the questions were written while
+  reading their passages and share vocabulary with them (see Limitations);
+  its gain is probably inflated, which is one reason not to use it alone.
+- **The MiniLM cross-encoder** (reranking the top 30 passages and top 10
+  figures) adds little on top of hybrid, within noise, at about 140 times the
+  search time on CPU. It is available (`RERANKER=minilm`) but off by default.
+- A larger reranker (`bge-reranker-base`) is being measured.
+
 ## Limitations
 
 - Questions were written while reading the passage, so they share more
@@ -72,5 +97,6 @@ From `backend/`:
 ```bash
 python scripts/eval_retrieval.py --check                    # validate questions against the index
 python scripts/eval_retrieval.py --name baseline            # score the current index into eval/runs/baseline/
+python scripts/eval_retrieval.py --name hybrid --method hybrid [--rerank minilm|bge-base]
 python scripts/eval_retrieval.py --compare baseline hybrid  # paired difference between two runs
 ```

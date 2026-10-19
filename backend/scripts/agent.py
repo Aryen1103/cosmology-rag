@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.agent import CosmologyAgent, ToolStep  # noqa: E402
 from app.agent.agent import MAX_TURNS  # noqa: E402
 from app.config import INDEX_DIR, PAPERS_DIR  # noqa: E402
-from app.index.store import Index  # noqa: E402
+from app.index.store import open_index  # noqa: E402
 from app.ingest.pipeline import paper_summaries  # noqa: E402
 
 
@@ -34,7 +34,7 @@ def main() -> None:
 
     agent = CosmologyAgent(max_turns=args.max_turns)
     print("== Tool calls ==")
-    run = agent.run(args.question, Index(INDEX_DIR), paper_summaries(PAPERS_DIR), on_step=print_step)
+    run = agent.run(args.question, open_index(INDEX_DIR), paper_summaries(PAPERS_DIR), on_step=print_step)
 
     answer = run.answer
     print(f"\n== {answer.provider} ({answer.model}) - {answer.latency_s:.1f}s, {len(run.steps)} tool calls, "

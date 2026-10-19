@@ -116,10 +116,16 @@ that.
 
 ### 3. Retrieval
 
-A question is embedded with bge's query instruction and compared against every
-vector with a single matrix-vector product. The top text chunks and top figures
-are ranked separately, so figures are never crowded out by the much larger
-number of text chunks.
+Retrieval is **hybrid** by default. The question is embedded with bge's query
+instruction and compared against every vector with a single matrix-vector
+product, and separately scored with BM25 keyword search over the same text,
+which matches exact tokens such as object names (GN-z11), surveys and numbers
+that embeddings blur. The two rankings are merged with reciprocal rank fusion.
+The top text chunks and top figures are ranked separately, so figures are
+never crowded out by the much larger number of text chunks. An optional
+cross-encoder reranker can reorder the top candidates; it is off by default
+because on CPU it adds seconds per question for a gain within noise (see the
+[eval](eval/README.md#retrieval-variants)).
 
 ### 4. Answering: one interface, two providers
 
@@ -220,7 +226,10 @@ calls, so it runs in seconds.
 | Figures | 48 | **79%** | 100% | 100% |
 
 The right paper is retrieved for every question; the misses are the right
-paper with the wrong passage, which is what the next retrieval changes target.
+paper with the wrong passage. Adding BM25 keyword search (hybrid retrieval,
+now the default) raises text hit@6 to **87%** (+9 points, paired 95% CI +2 to
++16) and figure hit@1 to **85%**, at no extra search time. Details and the
+reranker comparison are in [eval/README.md](eval/README.md#retrieval-variants).
 
 Earlier retrieval spot-checks: for questions like *"What value of H0 is obtained using
 only the tip of the red giant branch?"*, *"What limits does LUX-ZEPLIN place on
@@ -243,7 +252,9 @@ cosmology-rag/
 │   │   │   └── pipeline.py      # unpack e-print, parse, write paper.json
 │   │   ├── index/
 │   │   │   ├── embeddings.py    # bge-small via transformers (CLS pooling)
-│   │   │   └── store.py         # chunking, per-paper embedding cache, search
+│   │   │   ├── lexical.py       # BM25 keyword search (numpy)
+│   │   │   ├── rerank.py        # optional cross-encoder reranker
+│   │   │   └── store.py         # chunking, per-paper embedding cache, dense/BM25/hybrid search
 │   │   ├── answer/
 │   │   │   ├── base.py          # shared prompt, source labelling, citation checks
 │   │   │   ├── claude.py        # Claude: citable documents + images
@@ -407,6 +418,8 @@ Runtime settings (environment variables):
 | `ASK_LIMIT_PER_DAY` | Model calls per UTC day across all clients (0 = unlimited). |
 | `ADMIN_TOKEN` | If set, `POST /api/reload-index` requires a matching `X-Admin-Token` header. |
 | `PORT` | Listen port (default 8000). |
+| `RETRIEVAL_METHOD` | `hybrid` (default), `dense` or `bm25`. |
+| `RERANKER` | Optional cross-encoder: `minilm` or `bge-base`. Off by default; the model must be downloaded, so the offline Docker image needs it baked in first. |
 
 On a public deployment, set both limits. Every question spends your API credit,
 and **Search only** stays available once the limits are reached.
@@ -459,5 +472,5 @@ cost estimate, one-time setup and deploy steps.
 - [ ] Scale the corpus to a few hundred papers
 - [ ] Optional: generated figure descriptions at ingest time for stronger figure retrieval
 - [x] Retrieval eval: 138 questions on 50 held-out papers, no API calls
-- [ ] Hybrid (BM25 + dense) search and a cross-encoder reranker, measured on the eval
+- [x] Hybrid (BM25 + dense) search and an optional cross-encoder reranker, measured on the eval
 - [ ] Fine-tune the embedding model on the 151 training papers

@@ -30,7 +30,7 @@ from app.agent import AgentRun, CosmologyAgent
 from app.answer import PROVIDERS, get_provider
 from app.answer.base import Answer, Source, build_sources
 from app.config import INDEX_DIR, PAPERS_DIR, REPO_ROOT
-from app.index.store import Index
+from app.index.store import open_index
 from app.ingest.pipeline import paper_dir_name, paper_summaries
 
 PROVIDER_KEYS = {"claude": "ANTHROPIC_API_KEY", "deepseek": "DEEPSEEK_API_KEY"}
@@ -88,7 +88,7 @@ def _client_ip(request: Request) -> str:
 
 
 def _load_index() -> None:
-    _state["index"] = Index(INDEX_DIR)
+    _state["index"] = open_index(INDEX_DIR)
     _state.pop("papers", None)
 
 

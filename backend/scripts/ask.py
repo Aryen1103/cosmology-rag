@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.answer import PROVIDERS, get_provider  # noqa: E402
 from app.answer.base import build_sources  # noqa: E402
 from app.config import INDEX_DIR  # noqa: E402
-from app.index.store import Index  # noqa: E402
+from app.index.store import open_index  # noqa: E402
 
 
 def main() -> None:
@@ -29,7 +29,7 @@ def main() -> None:
     parser.add_argument("--retrieval-only", action="store_true")
     args = parser.parse_args()
 
-    text_hits, figure_hits = Index(INDEX_DIR).search(args.question, args.k_text, args.k_figures)
+    text_hits, figure_hits = open_index(INDEX_DIR).search(args.question, args.k_text, args.k_figures)
     sources = build_sources(text_hits, figure_hits)
 
     print("== Retrieved sources ==")

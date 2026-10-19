@@ -4,7 +4,8 @@ No API calls; the only cost is embedding the questions locally.
 
 Usage:
   python scripts/eval_retrieval.py --check                  # validate questions against the index
-  python scripts/eval_retrieval.py --name baseline          # score the current index
+  python scripts/eval_retrieval.py --name baseline          # score the current index (dense search)
+  python scripts/eval_retrieval.py --name hybrid --method hybrid [--rerank minilm|bge-base]
   python scripts/eval_retrieval.py --compare baseline other # paired difference between two runs
 Questions live in eval/retrieval_questions.jsonl, runs in eval/runs/<name>/.
 """
@@ -13,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -32,7 +34,8 @@ from app.eval.retrieval import (  # noqa: E402
     summarise,
 )
 from app.index.embeddings import MODEL_NAME  # noqa: E402
-from app.index.store import Hit, Index, Record  # noqa: E402
+from app.index.rerank import RERANKERS, Reranker  # noqa: E402
+from app.index.store import METHODS, Hit, Index, Record  # noqa: E402
 
 EVAL_DIR = REPO_ROOT / "eval"
 QUESTIONS = EVAL_DIR / "retrieval_questions.jsonl"
@@ -51,27 +54,33 @@ def _paper_rank(arxiv_id: str, hits: list[Hit]) -> int | None:
     return next((i for i, h in enumerate(hits, start=1) if h.record.arxiv_id == arxiv_id), None)
 
 
-def run(name: str) -> None:
+def run(name: str, method: str, rerank: str | None) -> None:
     questions = load_questions(QUESTIONS)
-    index = Index(INDEX_DIR)
+    index = Index(INDEX_DIR, method=method, reranker=Reranker(rerank) if rerank else None)
+    index.search("warm up the models", 1, 1)  # keep model loading out of the timings
     out_dir = RUNS_DIR / name
     out_dir.mkdir(parents=True, exist_ok=True)
     rows = []
     for q in questions:
+        started = time.perf_counter()
         text_hits, figure_hits = index.search(q.question, k_text=MAX_TEXT_K, k_figures=MAX_FIGURE_K)
+        elapsed = time.perf_counter() - started
         hits = figure_hits if q.kind == "figure" else text_hits
         rows.append({
             "id": q.id, "kind": q.kind, "tags": q.tags, "arxiv_id": q.arxiv_id,
             "rank": first_relevant_rank(q, hits),
             "paper_rank": _paper_rank(q.arxiv_id, hits),
+            "search_s": round(elapsed, 4),
             "top": [_brief(h) for h in hits[:6]],
         })
     with open(out_dir / "results.jsonl", "w", encoding="utf-8") as f:
         for row in rows:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
-    summary = {"name": name, "embedding_model": MODEL_NAME, "index_records": len(index.records),
-               "questions": len(rows), "metrics": {}}
+    summary = {"name": name, "method": method, "reranker": RERANKERS[rerank] if rerank else None,
+               "embedding_model": MODEL_NAME, "index_records": len(index.records),
+               "questions": len(rows), "median_search_s": float(np.median([r["search_s"] for r in rows])),
+               "metrics": {}}
     for kind, ks, max_k in (("text", TEXT_KS, MAX_TEXT_K), ("figure", FIGURE_KS, MAX_FIGURE_K)):
         subset = [r for r in rows if r["kind"] == kind]
         ranks = [r["rank"] for r in subset]
@@ -92,8 +101,9 @@ def run(name: str) -> None:
 
 
 def _print_summary(summary: dict) -> None:
-    print(f"{summary['name']}: {summary['questions']} questions, {summary['embedding_model']}, "
-          f"{summary['index_records']} index records")
+    print(f"{summary['name']}: {summary['questions']} questions, method={summary['method']}, "
+          f"reranker={summary['reranker']}, {summary['embedding_model']}, "
+          f"{summary['index_records']} index records, median search {summary['median_search_s'] * 1000:.0f} ms")
     for group, m in summary["metrics"].items():
         cols = "  ".join(f"{k}={v:.3f}" for k, v in m.items()
                          if isinstance(v, float) and not k.startswith("paper_"))
@@ -160,13 +170,15 @@ def main() -> None:
     group.add_argument("--check", action="store_true")
     group.add_argument("--name")
     group.add_argument("--compare", nargs=2, metavar=("A", "B"))
+    parser.add_argument("--method", choices=METHODS, default="dense")
+    parser.add_argument("--rerank", choices=sorted(RERANKERS))
     args = parser.parse_args()
     if args.check:
         check()
     elif args.compare:
         compare(*args.compare)
     else:
-        run(args.name)
+        run(args.name, args.method, args.rerank)
 
 
 if __name__ == "__main__":

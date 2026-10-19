@@ -16,6 +16,8 @@ import numpy as np
 
 from app.index.embeddings import DIM, embed_passages, embed_query
 from app.index.embeddings import MODEL_NAME as EMBEDDING_MODEL
+from app.index.lexical import BM25
+from app.index.rerank import Reranker
 
 CHUNK_WORDS = 220
 CHUNK_OVERLAP_WORDS = 40
@@ -152,21 +154,69 @@ def build_index(papers_dir: Path, index_dir: Path) -> dict[str, int]:
     }
 
 
+METHODS = ("dense", "bm25", "hybrid")
+RRF_K = 60  # standard reciprocal-rank-fusion constant
+FUSION_POOL = 100  # candidates taken from each ranking before fusing
+RERANK_DEPTH = {"text": 30, "figure": 10}  # candidates the cross-encoder reorders
+
+
+def rrf_order(rankings: list[np.ndarray], k: int = RRF_K) -> tuple[np.ndarray, np.ndarray]:
+    """Fuse ranked lists of row ids by reciprocal rank: sum of 1/(k + rank) over lists."""
+    fused: dict[int, float] = {}
+    for ranking in rankings:
+        for rank, row in enumerate(ranking.tolist(), start=1):
+            fused[row] = fused.get(row, 0.0) + 1.0 / (k + rank)
+    rows = sorted(fused, key=lambda r: -fused[r])
+    return np.array(rows, dtype=int), np.array([fused[r] for r in rows], dtype=np.float32)
+
+
 class Index:
-    def __init__(self, index_dir: Path) -> None:
+    def __init__(self, index_dir: Path, method: str = "dense", reranker: Reranker | None = None) -> None:
+        if method not in METHODS:
+            raise ValueError(f"unknown retrieval method {method!r}; expected one of {METHODS}")
         self.embeddings = np.load(index_dir / "embeddings.npy")
         with open(index_dir / "records.jsonl", encoding="utf-8") as f:
             self.records = [Record(**json.loads(line)) for line in f]
         kinds = np.array([r.kind for r in self.records])
-        self._text_rows = np.flatnonzero(kinds == "text")
-        self._figure_rows = np.flatnonzero(kinds == "figure")
+        self._rows = {"text": np.flatnonzero(kinds == "text"), "figure": np.flatnonzero(kinds == "figure")}
+        self.method = method
+        self.reranker = reranker
+        # BM25 sees the same title | section + text as the embedding model.
+        self._bm25 = BM25([_embedding_input(r) for r in self.records]) if method != "dense" else None
 
-    def _top(self, scores: np.ndarray, rows: np.ndarray, k: int) -> list[Hit]:
+    def _ranked(self, query: str, kind: str, k: int, dense: np.ndarray | None,
+                lexical: np.ndarray | None) -> list[Hit]:
+        rows = self._rows[kind]
         if k <= 0 or rows.size == 0:
             return []
-        best = rows[np.argsort(-scores[rows])[:k]]
-        return [Hit(self.records[i], float(scores[i])) for i in best]
+        depth = max(k, RERANK_DEPTH[kind]) if self.reranker else k
+        if self.method == "hybrid":
+            by_dense = rows[np.argsort(-dense[rows])[:FUSION_POOL]]
+            by_lexical = rows[np.argsort(-lexical[rows])[:FUSION_POOL]]
+            order, scores = rrf_order([by_dense, by_lexical])
+            order, scores = order[:depth], scores[:depth]
+        else:
+            raw = dense if self.method == "dense" else lexical
+            order = rows[np.argsort(-raw[rows])[:depth]]
+            scores = raw[order]
+        if self.reranker:
+            n = min(RERANK_DEPTH[kind], len(order))
+            head = self.reranker.scores(query, [_embedding_input(self.records[i]) for i in order[:n]])
+            resorted = np.argsort(-head)
+            order = np.concatenate([order[:n][resorted], order[n:]])
+            scores = np.concatenate([head[resorted], scores[n:]])
+        return [Hit(self.records[i], float(s)) for i, s in zip(order[:k], scores[:k])]
 
     def search(self, query: str, k_text: int = 6, k_figures: int = 3) -> tuple[list[Hit], list[Hit]]:
-        scores = self.embeddings @ embed_query(query)
-        return self._top(scores, self._text_rows, k_text), self._top(scores, self._figure_rows, k_figures)
+        dense = self.embeddings @ embed_query(query) if self.method != "bm25" else None
+        lexical = self._bm25.scores(query) if self._bm25 else None
+        return (self._ranked(query, "text", k_text, dense, lexical),
+                self._ranked(query, "figure", k_figures, dense, lexical))
+
+
+def open_index(index_dir: Path | None = None) -> Index:
+    """The index as the app runs it, with RETRIEVAL_METHOD and RERANKER from the environment."""
+    from app.config import INDEX_DIR, RERANKER, RETRIEVAL_METHOD
+
+    return Index(index_dir or INDEX_DIR, method=RETRIEVAL_METHOD,
+                 reranker=Reranker(RERANKER) if RERANKER else None)
