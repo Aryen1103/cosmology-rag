@@ -209,7 +209,20 @@ Ingestion run on the 20 most recent `astro-ph.CO` papers (September 2026):
 | Figures drawn inline (TikZ, caption-only) | 3 |
 | EPS figures (unsupported without Ghostscript) | 0 |
 
-Retrieval spot-checks: for questions like *"What value of H0 is obtained using
+**Retrieval evaluation** ([`eval/`](eval/README.md)): 138 questions written
+from randomly sampled passages and figures of 50 held-out papers (corpus of 201
+papers), graded by whether the answering passage or figure is retrieved. No API
+calls, so it runs in seconds.
+
+| | Questions | hit@1 | hit@6 | hit@20 |
+|---|---|---|---|---|
+| Text passages | 90 | 44% | **78%** | 94% |
+| Figures | 48 | **79%** | 100% | 100% |
+
+The right paper is retrieved for every question; the misses are the right
+paper with the wrong passage, which is what the next retrieval changes target.
+
+Earlier retrieval spot-checks: for questions like *"What value of H0 is obtained using
 only the tip of the red giant branch?"*, *"What limits does LUX-ZEPLIN place on
 primordial black hole evaporation?"* and *"Which figure shows how a peak in the
 correlation function evolves?"*, the correct paper is retrieved every time, and
@@ -235,16 +248,21 @@ cosmology-rag/
 │   │   │   ├── base.py          # shared prompt, source labelling, citation checks
 │   │   │   ├── claude.py        # Claude: citable documents + images
 │   │   │   └── deepseek.py      # DeepSeek: chat completions + images
-│   │   └── agent/
-│   │       ├── agent.py         # tool-calling loop, turn cap, citation check
-│   │       ├── tools.py         # tool schemas, source registry, tool execution
-│   │       └── cosmology.py     # flat ΛCDM distances and ages (numpy)
+│   │   ├── agent/
+│   │   │   ├── agent.py         # tool-calling loop, turn cap, citation check
+│   │   │   ├── tools.py         # tool schemas, source registry, tool execution
+│   │   │   └── cosmology.py     # flat ΛCDM distances and ages (numpy)
+│   │   └── eval/
+│   │       └── retrieval.py     # retrieval eval: paper split, gold matching, hit@k / MRR
 │   ├── scripts/
 │   │   ├── ingest.py            # fetch + parse papers into data/papers/
 │   │   ├── build_index.py       # embed into data/index/
 │   │   ├── ask.py               # ask a question from the command line
-│   │   └── agent.py             # ask the agent, printing each tool call
+│   │   ├── agent.py             # ask the agent, printing each tool call
+│   │   ├── sample_eval_passages.py  # train/test split + random passages to write eval questions from
+│   │   └── eval_retrieval.py    # score retrieval on the eval questions, compare runs
 │   └── tests/
+├── eval/                        # retrieval eval: split, questions, runs (see eval/README.md)
 ├── frontend/                    # React + Vite web app (proxies /api to the backend)
 └── data/                        # generated, gitignored
     ├── papers/<arxiv_id>/       # paper.json, figures/*.png, cached embeddings
@@ -440,3 +458,6 @@ cost estimate, one-time setup and deploy steps.
 - [ ] Go live on Azure
 - [ ] Scale the corpus to a few hundred papers
 - [ ] Optional: generated figure descriptions at ingest time for stronger figure retrieval
+- [x] Retrieval eval: 138 questions on 50 held-out papers, no API calls
+- [ ] Hybrid (BM25 + dense) search and a cross-encoder reranker, measured on the eval
+- [ ] Fine-tune the embedding model on the 151 training papers
