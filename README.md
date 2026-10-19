@@ -230,6 +230,9 @@ paper with the wrong passage. Adding BM25 keyword search (hybrid retrieval,
 now the default) raises text hit@6 to **87%** (+9 points, paired 95% CI +2 to
 +16) and figure hit@1 to **85%**, at no extra search time. Details and the
 reranker comparison are in [eval/README.md](eval/README.md#retrieval-variants).
+Fine-tuning bge-small on self-supervised pairs from the train papers was also
+tried and made retrieval worse (hybrid text hit@6 −6.7 points on a pilot), so
+the base model is kept; the eval README explains why.
 
 Earlier retrieval spot-checks: for questions like *"What value of H0 is obtained using
 only the tip of the red giant branch?"*, *"What limits does LUX-ZEPLIN place on
@@ -263,15 +266,18 @@ cosmology-rag/
 │   │   │   ├── agent.py         # tool-calling loop, turn cap, citation check
 │   │   │   ├── tools.py         # tool schemas, source registry, tool execution
 │   │   │   └── cosmology.py     # flat ΛCDM distances and ages (numpy)
-│   │   └── eval/
-│   │       └── retrieval.py     # retrieval eval: paper split, gold matching, hit@k / MRR
+│   │   ├── eval/
+│   │   │   └── retrieval.py     # retrieval eval: paper split, gold matching, hit@k / MRR
+│   │   └── finetune/
+│   │       └── pairs.py         # self-supervised training pairs from the train papers
 │   ├── scripts/
 │   │   ├── ingest.py            # fetch + parse papers into data/papers/
-│   │   ├── build_index.py       # embed into data/index/
+│   │   ├── build_index.py       # embed into data/index/ (or another model / paper subset)
 │   │   ├── ask.py               # ask a question from the command line
 │   │   ├── agent.py             # ask the agent, printing each tool call
 │   │   ├── sample_eval_passages.py  # train/test split + random passages to write eval questions from
-│   │   └── eval_retrieval.py    # score retrieval on the eval questions, compare runs
+│   │   ├── eval_retrieval.py    # score retrieval on the eval questions, compare runs
+│   │   └── finetune_embeddings.py   # contrastive fine-tuning of bge-small (experimental)
 │   └── tests/
 ├── eval/                        # retrieval eval: split, questions, runs (see eval/README.md)
 ├── frontend/                    # React + Vite web app (proxies /api to the backend)
@@ -473,4 +479,5 @@ cost estimate, one-time setup and deploy steps.
 - [ ] Optional: generated figure descriptions at ingest time for stronger figure retrieval
 - [x] Retrieval eval: 138 questions on 50 held-out papers, no API calls
 - [x] Hybrid (BM25 + dense) search and an optional cross-encoder reranker, measured on the eval
-- [ ] Fine-tune the embedding model on the 151 training papers
+- [x] Fine-tune the embedding model on the 151 training papers: tried, self-supervised pilot made retrieval worse ([details](eval/README.md#fine-tuning-the-embedding-model-negative-result)); base model kept
+- [ ] Revisit fine-tuning with same-paper hard negatives and question-shaped queries

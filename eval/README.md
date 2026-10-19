@@ -9,7 +9,7 @@ calls; a run only embeds the questions locally and takes seconds.
 
 | File | What it is |
 |---|---|
-| `split.json` | Frozen paper-level split: 50 test papers (eval questions) and 151 train papers (reserved for fine-tuning data). Read this file rather than recomputing the split, because adding papers can shift a recomputed one. |
+| `split.json` | Frozen paper-level split: 50 test papers (eval questions) and 151 train papers (the only source of fine-tuning data). Read this file rather than recomputing the split, because adding papers can shift a recomputed one. |
 | `retrieval_questions.jsonl` | 138 questions (90 text, 48 figure) from the 50 test papers. |
 | `runs/<name>/` | `summary.json` (metrics) and `results.jsonl` (rank and top hits per question) for each run. |
 
@@ -82,6 +82,47 @@ median per question on CPU, excluding model loading.
   hybrid is within noise, figure hit@1 drops slightly, and it takes about
   19 s per question on CPU. It would be worth revisiting with a GPU, or with a
   shallower rerank depth than 30; for now it is available but off by default.
+
+## Fine-tuning the embedding model (negative result)
+
+bge-small was fine-tuned on self-supervised pairs from the 151 train papers
+(`app/finetune/pairs.py`, `scripts/finetune_embeddings.py`), with no API calls
+and no generated text. The pairs are "inverse cloze": a sentence is removed
+from an indexed chunk and used as the query, with the rest of the chunk as the
+positive (9,390 candidates: 8,667 text, 723 from figure captions). Training was
+contrastive with in-batch negatives, temperature 0.02, learning rate 1e-5,
+batch 32, passages truncated to 256 tokens.
+
+A **pilot on 1,000 pairs** (1 epoch, 9.6 min on CPU; loss 1.6 → 0.9) was
+evaluated before committing to a multi-hour run. To keep the pilot cheap, both
+models were scored on an index of the 50 test papers only (base-model scores
+there are within a point of the full 201-paper index):
+
+| 50-paper index | Text hit@6 | Paired diff (95% CI) | Gained / lost | Figure hit@1 |
+|---|---|---|---|---|
+| Dense: base → fine-tuned | 0.789 → 0.733 | −0.056 (−0.133 to +0.022) | 4 / 9 | 0.812 → 0.812 |
+| Hybrid: base → fine-tuned | 0.900 → 0.833 | −0.067 (−0.133 to −0.011) | 1 / 7 | 0.854 → 0.812 |
+
+Fine-tuning made retrieval worse, so the full run was not done and the app
+keeps the base model. Likely reasons, in order of how much they probably
+matter:
+
+1. **The negatives taught the wrong distinction.** In-batch negatives come from
+   random other papers, so training rewards telling papers apart. The eval
+   shows that is already solved (the right paper is retrieved for every
+   question); the misses are the wrong passage *within* the right paper, and
+   the training never contrasted passages of the same paper.
+2. **The queries are not questions.** A sentence lifted from a paper shares
+   its phrasing with the passage; real questions paraphrase. The model may
+   have learned to match a paper's own wording.
+3. **Truncation mismatch.** Training saw the first 256 tokens of passages
+   whose median length is ~450 tokens; the index embeds up to 512.
+
+If revisited: batch several chunks of the same paper together (hard
+negatives from the same paper), train on full-length passages, and use
+question-shaped queries (for example from a local question-generation model).
+
+Runs: `runs/test50-base-{dense,hybrid}` and `runs/test50-ftpilot-{dense,hybrid}`.
 
 ## Limitations
 

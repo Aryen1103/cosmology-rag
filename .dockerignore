@@ -12,5 +12,5 @@ frontend/dist
 # Only data/index and each paper's paper.json + figures/ are needed at runtime.
 data/*.log
 data/*.json
-data/papers/*/embeddings.npy
-data/papers/*/embeddings.key
+data/papers/*/embeddings*.npy
+data/papers/*/embeddings*.key

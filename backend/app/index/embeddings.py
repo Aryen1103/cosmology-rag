@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import numpy as np
 
-MODEL_NAME = "BAAI/bge-small-en-v1.5"
+DEFAULT_MODEL = "BAAI/bge-small-en-v1.5"
+MODEL_NAME = DEFAULT_MODEL  # a Hugging Face id or a local fine-tuned copy; see use_model
 DIM = 384
 MAX_TOKENS = 512
 BATCH_SIZE = 32
@@ -17,6 +18,13 @@ QUERY_INSTRUCTION = "Represent this sentence for searching relevant passages: "
 
 _tokenizer = None
 _model = None
+
+
+def use_model(name: str) -> None:
+    """Switch the process to another bge-small-compatible model (same dimension and pooling)."""
+    global MODEL_NAME, _tokenizer, _model
+    if name != MODEL_NAME:
+        MODEL_NAME, _tokenizer, _model = name, None, None
 
 
 def _load():

@@ -14,8 +14,8 @@ from pathlib import Path
 
 import numpy as np
 
+from app.index import embeddings as emb
 from app.index.embeddings import DIM, embed_passages, embed_query
-from app.index.embeddings import MODEL_NAME as EMBEDDING_MODEL
 from app.index.lexical import BM25
 from app.index.rerank import Reranker
 
@@ -119,8 +119,10 @@ def _paper_embeddings(paper_dir: Path, records: list[Record]) -> tuple[np.ndarra
     rebuild doesn't scale; only new papers or changed chunking pay the cost.
     """
     inputs = [_embedding_input(r) for r in records]
-    key = hashlib.sha256(f"{EMBEDDING_MODEL}\n".encode() + "\x00".join(inputs).encode()).hexdigest()
-    cache_npy, cache_key = paper_dir / "embeddings.npy", paper_dir / "embeddings.key"
+    key = hashlib.sha256(f"{emb.MODEL_NAME}\n".encode() + "\x00".join(inputs).encode()).hexdigest()
+    # Each model gets its own cache files, so trying another model never evicts the default's.
+    stem = "embeddings" if emb.MODEL_NAME == emb.DEFAULT_MODEL else f"embeddings-{_model_slug(emb.MODEL_NAME)}"
+    cache_npy, cache_key = paper_dir / f"{stem}.npy", paper_dir / f"{stem}.key"
     if cache_npy.exists() and cache_key.exists() and cache_key.read_text() == key:
         return np.load(cache_npy), True
     embeddings = embed_passages(inputs)
@@ -129,12 +131,21 @@ def _paper_embeddings(paper_dir: Path, records: list[Record]) -> tuple[np.ndarra
     return embeddings, False
 
 
-def build_index(papers_dir: Path, index_dir: Path) -> dict[str, int]:
+def _model_slug(model: str) -> str:
+    return re.sub(r"[^A-Za-z0-9]+", "-", Path(model).name).strip("-")[:40] + "-" + \
+        hashlib.sha256(model.encode()).hexdigest()[:8]
+
+
+def build_index(papers_dir: Path, index_dir: Path, only: set[str] | None = None) -> dict[str, int]:
+    """Embed papers (all, or the arXiv ids in `only`) with the current model into index_dir."""
     records: list[Record] = []
     parts: list[np.ndarray] = []
     embedded = 0
     for paper_json in sorted(papers_dir.glob("*/paper.json")):
-        paper_records = records_for_paper(json.loads(paper_json.read_text(encoding="utf-8")))
+        paper = json.loads(paper_json.read_text(encoding="utf-8"))
+        if only is not None and paper["meta"]["arxiv_id"] not in only:
+            continue
+        paper_records = records_for_paper(paper)
         embeddings, cached = _paper_embeddings(paper_json.parent, paper_records)
         records += paper_records
         parts.append(embeddings)
@@ -146,6 +157,7 @@ def build_index(papers_dir: Path, index_dir: Path) -> dict[str, int]:
     with open(index_dir / "records.jsonl", "w", encoding="utf-8") as f:
         for record in records:
             f.write(json.dumps(asdict(record), ensure_ascii=False) + "\n")
+    (index_dir / "meta.json").write_text(json.dumps({"embedding_model": emb.MODEL_NAME, "papers": len(parts)}) + "\n")
     return {
         "text_chunks": sum(r.kind == "text" for r in records),
         "figures": sum(r.kind == "figure" for r in records),
@@ -177,6 +189,12 @@ class Index:
         self.embeddings = np.load(index_dir / "embeddings.npy")
         with open(index_dir / "records.jsonl", encoding="utf-8") as f:
             self.records = [Record(**json.loads(line)) for line in f]
+        # Queries must be embedded by the model that built the index (indexes from before
+        # meta.json existed were all built with the default model).
+        meta = index_dir / "meta.json"
+        self.embedding_model = (json.loads(meta.read_text())["embedding_model"] if meta.exists()
+                                else emb.DEFAULT_MODEL)
+        emb.use_model(self.embedding_model)
         kinds = np.array([r.kind for r in self.records])
         self._rows = {"text": np.flatnonzero(kinds == "text"), "figure": np.flatnonzero(kinds == "figure")}
         self.method = method

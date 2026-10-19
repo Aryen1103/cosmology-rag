@@ -33,7 +33,6 @@ from app.eval.retrieval import (  # noqa: E402
     load_questions,
     summarise,
 )
-from app.index.embeddings import MODEL_NAME  # noqa: E402
 from app.index.rerank import RERANKERS, Reranker  # noqa: E402
 from app.index.store import METHODS, Hit, Index, Record  # noqa: E402
 
@@ -54,9 +53,9 @@ def _paper_rank(arxiv_id: str, hits: list[Hit]) -> int | None:
     return next((i for i, h in enumerate(hits, start=1) if h.record.arxiv_id == arxiv_id), None)
 
 
-def run(name: str, method: str, rerank: str | None) -> None:
+def run(name: str, method: str, rerank: str | None, index_dir: Path) -> None:
     questions = load_questions(QUESTIONS)
-    index = Index(INDEX_DIR, method=method, reranker=Reranker(rerank) if rerank else None)
+    index = Index(index_dir, method=method, reranker=Reranker(rerank) if rerank else None)
     index.search("warm up the models", 1, 1)  # keep model loading out of the timings
     out_dir = RUNS_DIR / name
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -78,7 +77,11 @@ def run(name: str, method: str, rerank: str | None) -> None:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
     summary = {"name": name, "method": method, "reranker": RERANKERS[rerank] if rerank else None,
-               "embedding_model": MODEL_NAME, "index_records": len(index.records),
+               # A local fine-tuned model is recorded by folder name, not by this machine's path.
+               "embedding_model": (Path(index.embedding_model).name if Path(index.embedding_model).is_absolute()
+                                   else index.embedding_model),
+               "index_dir": index_dir.name,
+               "index_records": len(index.records),
                "questions": len(rows), "median_search_s": float(np.median([r["search_s"] for r in rows])),
                "metrics": {}}
     for kind, ks, max_k in (("text", TEXT_KS, MAX_TEXT_K), ("figure", FIGURE_KS, MAX_FIGURE_K)):
@@ -172,13 +175,14 @@ def main() -> None:
     group.add_argument("--compare", nargs=2, metavar=("A", "B"))
     parser.add_argument("--method", choices=METHODS, default="dense")
     parser.add_argument("--rerank", choices=sorted(RERANKERS))
+    parser.add_argument("--index-dir", type=Path, default=INDEX_DIR, help="index to score (default: the app's)")
     args = parser.parse_args()
     if args.check:
         check()
     elif args.compare:
         compare(*args.compare)
     else:
-        run(args.name, args.method, args.rerank)
+        run(args.name, args.method, args.rerank, args.index_dir)
 
 
 if __name__ == "__main__":
