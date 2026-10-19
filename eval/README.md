@@ -65,6 +65,7 @@ median per question on CPU, excluding model loading.
 | BM25 only (`--method bm25`) | 0.833 (+0.056, CI −0.044 to +0.156) | 0.467 | 0.833 | <1 ms |
 | **Hybrid** (`--method hybrid`) | **0.867** (+0.089, CI +0.022 to +0.156) | 0.533 | 0.854 (+0.062, CI 0.000 to +0.146) | 23 ms |
 | Hybrid + MiniLM reranker (`--rerank minilm`) | 0.878 (+0.011 vs hybrid, CI −0.033 to +0.056) | 0.578 | 0.896 (+0.042 vs hybrid, CI −0.062 to +0.146) | 3.1 s |
+| Hybrid + bge reranker (`--rerank bge-base`) | 0.911 (+0.044 vs hybrid, CI −0.011 to +0.111; +0.133 vs dense, CI +0.056 to +0.211) | 0.600 | 0.812 (−0.042 vs hybrid, CI −0.167 to +0.062) | 18.8 s |
 
 - **Hybrid** fuses the dense and BM25 rankings with reciprocal rank fusion
   (k = 60, top 100 from each). It gained 9 text questions and lost 1, and is
@@ -76,7 +77,11 @@ median per question on CPU, excluding model loading.
 - **The MiniLM cross-encoder** (reranking the top 30 passages and top 10
   figures) adds little on top of hybrid, within noise, at about 140 times the
   search time on CPU. It is available (`RERANKER=minilm`) but off by default.
-- A larger reranker (`bge-reranker-base`) is being measured.
+- **The bge cross-encoder** (`BAAI/bge-reranker-base`) gives the best text
+  scores (hit@6 0.911, gained 6 and lost 2 against hybrid), but the gain over
+  hybrid is within noise, figure hit@1 drops slightly, and it takes about
+  19 s per question on CPU. It would be worth revisiting with a GPU, or with a
+  shallower rerank depth than 30; for now it is available but off by default.
 
 ## Limitations
 
