@@ -270,7 +270,8 @@ cosmology-rag/
 │   │   │   ├── tools.py         # tool schemas, source registry, tool execution
 │   │   │   └── cosmology.py     # flat ΛCDM distances and ages (numpy)
 │   │   ├── eval/
-│   │   │   └── retrieval.py     # retrieval eval: paper split, gold matching, hit@k / MRR
+│   │   │   ├── retrieval.py     # retrieval eval: paper split, gold matching, hit@k / MRR
+│   │   │   └── citation.py      # citation eval: rubric checks, judge prompts and parsing
 │   │   └── finetune/
 │   │       └── pairs.py         # self-supervised training pairs from the train papers
 │   ├── scripts/
@@ -280,9 +281,11 @@ cosmology-rag/
 │   │   ├── agent.py             # ask the agent, printing each tool call
 │   │   ├── sample_eval_passages.py  # train/test split + random passages to write eval questions from
 │   │   ├── eval_retrieval.py    # score retrieval on the eval questions, compare runs
+│   │   ├── eval_citation.py     # Claude vs DeepSeek citation eval: answer, judge, report
 │   │   └── finetune_embeddings.py   # contrastive fine-tuning of bge-small (experimental)
 │   └── tests/
 ├── eval/                        # retrieval eval: split, questions, runs (see eval/README.md)
+│   └── citation/                # citation eval: questions, runs, findings (eval/citation/README.md)
 ├── frontend/                    # React + Vite web app (proxies /api to the backend)
 └── data/                        # generated, gitignored
     ├── papers/<arxiv_id>/       # paper.json, figures/*.png, cached embeddings
@@ -400,8 +403,17 @@ marker validation, plus the HTTP API: input validation, missing-key errors,
 path-traversal protection on the figure route, and rate limiting. Agent mode
 is tested with a scripted fake client: tool execution and error results,
 stable source labels across searches, the turn cap, refusals, and the ΛCDM
-calculator against reference values. None of them need network access or API
-keys.
+calculator against reference values. Retrieval is tested for dense, BM25 and
+hybrid ranking, rank fusion and reranking on a toy index, and the two evals for
+their scoring: gold matching, hit@k and MRR, the paper split, the citation
+rubric (right paper, section and figure; gold that retrieval missed is excluded
+rather than failed) and judge-output parsing. None of them need network access
+or API keys.
+
+**Evaluations.** Two evals sit beside the tests and are run on demand:
+[retrieval](eval/README.md) (138 questions on held-out papers, no API calls) and
+[citation quality](eval/citation/README.md) (Claude vs DeepSeek on 18
+questions, needs the Claude Code CLI and a DeepSeek key).
 
 **CI.** [GitHub Actions](.github/workflows/ci.yml) runs on every push and pull
 request: pytest, the frontend lint and production build, and a Docker image
