@@ -1,0 +1,112 @@
+{
+  "providers": {
+    "claude": {
+      "cited_correctly": {
+        "pass": 16,
+        "n": 16,
+        "rate": 1.0
+      },
+      "correct_paper": {
+        "pass": 16,
+        "n": 16,
+        "rate": 1.0
+      },
+      "correct_section": {
+        "pass": 12,
+        "n": 12,
+        "rate": 1.0
+      },
+      "figure_referenced": {
+        "pass": 6,
+        "n": 6,
+        "rate": 1.0
+      },
+      "no_unsupported_claims": {
+        "pass": 16,
+        "n": 18,
+        "rate": 0.889
+      },
+      "declined_unanswerable": {
+        "pass": 1,
+        "n": 2,
+        "rate": 0.5
+      },
+      "invalid_markers": 0,
+      "by_tier": {
+        "simple": {
+          "pass": 6,
+          "n": 6,
+          "rate": 1.0
+        },
+        "medium": {
+          "pass": 6,
+          "n": 6,
+          "rate": 1.0
+        },
+        "complex": {
+          "pass": 4,
+          "n": 4,
+          "rate": 1.0
+        }
+      },
+      "median_latency_s": 12.8,
+      "input_tokens": 235225,
+      "output_tokens": 16990,
+      "answers": 18
+    },
+    "deepseek": {
+      "cited_correctly": {
+        "pass": 16,
+        "n": 16,
+        "rate": 1.0
+      },
+      "correct_paper": {
+        "pass": 16,
+        "n": 16,
+        "rate": 1.0
+      },
+      "correct_section": {
+        "pass": 12,
+        "n": 12,
+        "rate": 1.0
+      },
+      "figure_referenced": {
+        "pass": 6,
+        "n": 6,
+        "rate": 1.0
+      },
+      "no_unsupported_claims": {
+        "pass": 14,
+        "n": 18,
+        "rate": 0.778
+      },
+      "declined_unanswerable": {
+        "pass": 1,
+        "n": 2,
+        "rate": 0.5
+      },
+      "invalid_markers": 0,
+      "by_tier": {
+        "simple": {
+          "pass": 6,
+          "n": 6,
+          "rate": 1.0
+        },
+        "medium": {
+          "pass": 6,
+          "n": 6,
+          "rate": 1.0
+        },
+        "complex": {
+          "pass": 4,
+          "n": 4,
+          "rate": 1.0
+        }
+      },
+      "median_latency_s": 4.9,
+      "input_tokens": 114258,
+      "output_tokens": 17912,
+      "answers": 18
+    }
+  }
+}

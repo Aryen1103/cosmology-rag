@@ -9,11 +9,14 @@ retrieves the most relevant text passages *and* figures, then a
 vision-language model reads both, including the plots themselves, and answers
 with citations back to the exact paper, section and figure.
 
-> **Status: work in progress.** Ingestion, indexing and retrieval are built and
-> tested on real papers. The answer step (Claude and DeepSeek) is implemented
-> but not yet evaluated against the live APIs. A FastAPI backend and a React
-> web app are working. A tool-calling agent mode is implemented and tested
-> offline. A head-to-head model comparison is next. See [Roadmap](#roadmap).
+> **Status: work in progress.** Ingestion, indexing and retrieval are built,
+> tested on real papers and measured on a retrieval eval. Claude and DeepSeek
+> have been compared head to head on citation quality ([results](eval/citation/README.md)):
+> both cited the right paper, section and figure on 16/16 answerable questions,
+> and their citations supported the attached claim 97% (Claude) and 99%
+> (DeepSeek) of the time, but Claude left 26% of its claims uncited against 10%.
+> A FastAPI backend and a React web app are working. A tool-calling agent mode
+> is implemented and tested offline. See [Roadmap](#roadmap).
 
 ---
 
@@ -470,7 +473,7 @@ cost estimate, one-time setup and deploy steps.
 - [x] Retrieval over text and figures
 - [x] Claude and DeepSeek answer providers behind one interface
 - [x] Tool-calling agent mode (search, figure viewing, paper lookup, ΛCDM calculator)
-- [ ] Run and compare both providers on real figure questions
+- [x] Compare both providers on citation quality, including figure questions ([results](eval/citation/README.md))
 - [ ] Evaluate agent mode against single-shot answers on multi-step questions
 - [x] FastAPI backend + React frontend (answers with clickable citations and figure thumbnails)
 - [x] Docker image, CI (pytest, frontend, Terraform, image build), Azure Container Apps infrastructure as code

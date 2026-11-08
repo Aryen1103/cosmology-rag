@@ -1,0 +1,36 @@
+{"id": "s1", "provider": "claude", "n_claims": 6, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "s1", "provider": "deepseek", "n_claims": 3, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "s2", "provider": "claude", "n_claims": 14, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "s2", "provider": "deepseek", "n_claims": 4, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "s3", "provider": "claude", "n_claims": 5, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "s3", "provider": "deepseek", "n_claims": 1, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "s4", "provider": "claude", "n_claims": 9, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "s4", "provider": "deepseek", "n_claims": 3, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "s5", "provider": "claude", "n_claims": 13, "n_unsupported": 1, "unsupported": ["The generous 30 search radius probably increased the chance of nearby-galaxy confusion."], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "s5", "provider": "deepseek", "n_claims": 2, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "s6", "provider": "claude", "n_claims": 11, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "s6", "provider": "deepseek", "n_claims": 10, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "m1", "provider": "claude", "n_claims": 20, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "m1", "provider": "deepseek", "n_claims": 15, "n_unsupported": 2, "unsupported": ["For D_M/r_d, DQCD lies closer to the DESI points at z≈0.7–1.5, which are near -2%.", "For D_V/r_d, DQCD again tracks the low-z DESI points better."], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "m2", "provider": "claude", "n_claims": 19, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "m2", "provider": "deepseek", "n_claims": 8, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "m3", "provider": "claude", "n_claims": 17, "n_unsupported": 2, "unsupported": ["The 68% band's winter minimum spans roughly 0.2–0.55.", "The 95% and 100% bands reach all the way down to 0 for parts of the year."], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "m3", "provider": "deepseek", "n_claims": 13, "n_unsupported": 1, "unsupported": ["The purple 68% band bottoms out around 0.5–0.6."], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "m4", "provider": "claude", "n_claims": 11, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "m4", "provider": "deepseek", "n_claims": 8, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "m5", "provider": "claude", "n_claims": 14, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "m5", "provider": "deepseek", "n_claims": 10, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "m6", "provider": "claude", "n_claims": 9, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "m6", "provider": "deepseek", "n_claims": 9, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "c1", "provider": "claude", "n_claims": 35, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "c1", "provider": "deepseek", "n_claims": 19, "n_unsupported": 1, "unsupported": ["Boosted DM generally avoids the missing low-energy recoil excess without qualification."], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "c2", "provider": "claude", "n_claims": 33, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "c2", "provider": "deepseek", "n_claims": 19, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "c3", "provider": "claude", "n_claims": 25, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "c3", "provider": "deepseek", "n_claims": 17, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "c4", "provider": "claude", "n_claims": 11, "n_unsupported": 0, "unsupported": [], "declines": true, "judge_model": "deepseek-flash"}
+{"id": "c4", "provider": "deepseek", "n_claims": 8, "n_unsupported": 0, "unsupported": [], "declines": true, "judge_model": "deepseek-flash"}
+{"id": "c5", "provider": "claude", "n_claims": 16, "n_unsupported": 0, "unsupported": [], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "c5", "provider": "deepseek", "n_claims": 12, "n_unsupported": 1, "unsupported": ["The Euclid paper's introduction frames the motivation only in terms of characterizing the cluster population with weak-lensing-selected samples."], "declines": false, "judge_model": "deepseek-flash"}
+{"id": "c6", "provider": "claude", "n_claims": 6, "n_unsupported": 0, "unsupported": [], "declines": true, "judge_model": "deepseek-flash"}
+{"id": "c6", "provider": "deepseek", "n_claims": 4, "n_unsupported": 0, "unsupported": [], "declines": true, "judge_model": "deepseek-flash"}

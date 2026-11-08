@@ -1,0 +1,36 @@
+{"id": "s1", "provider": "claude", "n_claims": 5, "n_cited": 3, "n_cited_correct": 3, "n_uncited": 2, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "s1", "provider": "deepseek", "n_claims": 3, "n_cited": 3, "n_cited_correct": 3, "n_uncited": 0, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "s2", "provider": "claude", "n_claims": 11, "n_cited": 7, "n_cited_correct": 7, "n_uncited": 4, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "s2", "provider": "deepseek", "n_claims": 2, "n_cited": 2, "n_cited_correct": 2, "n_uncited": 0, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "s3", "provider": "claude", "n_claims": 4, "n_cited": 2, "n_cited_correct": 2, "n_uncited": 2, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "s3", "provider": "deepseek", "n_claims": 1, "n_cited": 1, "n_cited_correct": 1, "n_uncited": 0, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "s4", "provider": "claude", "n_claims": 9, "n_cited": 8, "n_cited_correct": 8, "n_uncited": 1, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "s4", "provider": "deepseek", "n_claims": 2, "n_cited": 2, "n_cited_correct": 2, "n_uncited": 0, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "s5", "provider": "claude", "n_claims": 10, "n_cited": 7, "n_cited_correct": 6, "n_uncited": 3, "wrong_citations": ["The generous 30 search radius used for this sample probably increased the chance of nearby-galaxy confusion."], "judge_model": "deepseek-flash"}
+{"id": "s5", "provider": "deepseek", "n_claims": 2, "n_cited": 2, "n_cited_correct": 2, "n_uncited": 0, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "s6", "provider": "claude", "n_claims": 12, "n_cited": 10, "n_cited_correct": 10, "n_uncited": 2, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "s6", "provider": "deepseek", "n_claims": 8, "n_cited": 6, "n_cited_correct": 6, "n_uncited": 2, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "m1", "provider": "claude", "n_claims": 22, "n_cited": 16, "n_cited_correct": 16, "n_uncited": 6, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "m1", "provider": "deepseek", "n_claims": 10, "n_cited": 5, "n_cited_correct": 5, "n_uncited": 5, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "m2", "provider": "claude", "n_claims": 16, "n_cited": 14, "n_cited_correct": 14, "n_uncited": 2, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "m2", "provider": "deepseek", "n_claims": 7, "n_cited": 7, "n_cited_correct": 7, "n_uncited": 0, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "m3", "provider": "claude", "n_claims": 18, "n_cited": 13, "n_cited_correct": 12, "n_uncited": 5, "wrong_citations": ["The 95% and 100% bands reach all the way down to 0 for parts of the year."], "judge_model": "deepseek-flash"}
+{"id": "m3", "provider": "deepseek", "n_claims": 11, "n_cited": 10, "n_cited_correct": 9, "n_uncited": 1, "wrong_citations": ["The purple 68% band bottoms out around 0.5–0.6."], "judge_model": "deepseek-flash"}
+{"id": "m4", "provider": "claude", "n_claims": 9, "n_cited": 7, "n_cited_correct": 7, "n_uncited": 2, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "m4", "provider": "deepseek", "n_claims": 7, "n_cited": 5, "n_cited_correct": 5, "n_uncited": 2, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "m5", "provider": "claude", "n_claims": 24, "n_cited": 24, "n_cited_correct": 22, "n_uncited": 0, "wrong_citations": ["The fitted slope rises past -2.0 below about 5×10^5 M⊙.", "M_sep is about 7×10^5 M⊙."], "judge_model": "deepseek-flash"}
+{"id": "m5", "provider": "deepseek", "n_claims": 10, "n_cited": 10, "n_cited_correct": 10, "n_uncited": 0, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "m6", "provider": "claude", "n_claims": 16, "n_cited": 11, "n_cited_correct": 9, "n_uncited": 5, "wrong_citations": ["In the g_BL–m_Z' figure, the allowed blue region is bounded by four constraints.", "From the plot, the upper green 10^-45 cm² line appears to form the top edge only near m_Z' ≈ 5.5 TeV, just before it crosses the perturbativity line."], "judge_model": "deepseek-flash"}
+{"id": "m6", "provider": "deepseek", "n_claims": 14, "n_cited": 14, "n_cited_correct": 14, "n_uncited": 0, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "c1", "provider": "claude", "n_claims": 39, "n_cited": 31, "n_cited_correct": 31, "n_uncited": 8, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "c1", "provider": "deepseek", "n_claims": 28, "n_cited": 25, "n_cited_correct": 24, "n_uncited": 3, "wrong_citations": ["That example is Higgsino-like."], "judge_model": "deepseek-flash"}
+{"id": "c2", "provider": "claude", "n_claims": 31, "n_cited": 24, "n_cited_correct": 24, "n_uncited": 7, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "c2", "provider": "deepseek", "n_claims": 18, "n_cited": 18, "n_cited_correct": 18, "n_uncited": 0, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "c3", "provider": "deepseek", "n_claims": 13, "n_cited": 11, "n_cited_correct": 11, "n_uncited": 2, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "c4", "provider": "claude", "n_claims": 10, "n_cited": 9, "n_cited_correct": 9, "n_uncited": 1, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "c4", "provider": "deepseek", "n_claims": 12, "n_cited": 11, "n_cited_correct": 11, "n_uncited": 1, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "c5", "provider": "claude", "n_claims": 12, "n_cited": 5, "n_cited_correct": 5, "n_uncited": 7, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "c5", "provider": "deepseek", "n_claims": 10, "n_cited": 10, "n_cited_correct": 10, "n_uncited": 0, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "c6", "provider": "claude", "n_claims": 8, "n_cited": 5, "n_cited_correct": 5, "n_uncited": 3, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "c6", "provider": "deepseek", "n_claims": 3, "n_cited": 3, "n_cited_correct": 3, "n_uncited": 0, "wrong_citations": [], "judge_model": "deepseek-flash"}
+{"id": "c3", "provider": "claude", "n_claims": 25, "n_cited": 12, "n_cited_correct": 12, "n_uncited": 13, "wrong_citations": [], "judge_model": "deepseek-flash"}
